@@ -67,38 +67,53 @@ async function run() {
   if (process.stdin.isTTY) process.stdin.setRawMode(true);
   let rownumber = 1;
   let colnumber = 1;
-  process.stdin.on("keypress", (_, key) => {
-    if (key && key.name == "q") {
-      process.exit();
-    } else if (key && key.name === "i") {
-      // enter line edit mode
-      process.stdin.setRawMode(false);
-      var cel = worksheet.getRow(rownumber).getCell(colnumber);
-      rl.write(getCellResult(worksheet, cel.address));
-      rl.question("> ", function (answer) {
-        console.log("User entered: ", answer);
-        // return to watching single keys
-        process.stdin.setRawMode(true);
-      });
-    } else if (
-      key &&
-      (key.name === "enter" || key.name === "return" || key.name === "down")
-    ) {
-      rownumber += 1;
-    } else if (key && key.name === "left") {
-      colnumber -= 1;
-    } else if (key && key.name === "right") {
-      colnumber += 1;
-    } else if (key && key.name === "up") {
-      rownumber -= 1;
-    } else {
-      console.log("key", key);
+  const ppl = (_, key) => {
+    switch (key.name) {
+      case "q":
+        process.exit();
+        break;
+      case "i":
+        // enter line edit mode
+        process.stdin.setRawMode(false);
+        process.stdin.removeListener("keypress", ppl);
+        var cel = worksheet.getRow(rownumber).getCell(colnumber);
+        rl.question("> ", function (answer) {
+          readline.moveCursor(process.stdout, 0, -4);
+          readline.clearScreenDown(process.stdout);
+          console.log("User entered: ", answer);
+          // return to watching single keys
+          process.stdin.setRawMode(true);
+          process.stdin.on("keypress", ppl);
+        });
+        // provide default anser that can be edited
+        rl.write(getCellResult(worksheet, cel.address));
+        readline.moveCursor(process.stdout, 0, -2);
+        break;
+      case "enter":
+      case "return":
+      case "down":
+        rownumber += 1;
+        break;
+      case "left":
+        colnumber -= 1;
+        break;
+      case "right":
+        colnumber += 1;
+        break;
+      case "up":
+        rownumber -= 1;
+        break;
+      default:
+        console.log("key", key);
+        break;
     }
     rownumber = rownumber < 1 ? 1 : rownumber;
     colnumber = colnumber < 1 ? 1 : colnumber;
     var cel = worksheet.getRow(rownumber).getCell(colnumber);
     console.log(cel.address, getCellResult(worksheet, cel.address));
-  });
+  };
+
+  process.stdin.on("keypress", ppl);
 
   function getCellResult(worksheet, cellLabel) {
     if (worksheet.getCell(cellLabel).formula) {
