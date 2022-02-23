@@ -59,6 +59,10 @@ async function run() {
       done(fragment);
     }
   });
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
   readline.emitKeypressEvents(process.stdin);
   if (process.stdin.isTTY) process.stdin.setRawMode(true);
   let rownumber = 1;
@@ -66,7 +70,20 @@ async function run() {
   process.stdin.on("keypress", (_, key) => {
     if (key && key.name == "q") {
       process.exit();
-    } else if (key && key.name === "down") {
+    } else if (key && key.name === "i") {
+      // enter line edit mode
+      process.stdin.setRawMode(false);
+      var cel = worksheet.getRow(rownumber).getCell(colnumber);
+      rl.write(getCellResult(worksheet, cel.address));
+      rl.question("> ", function (answer) {
+        console.log("User entered: ", answer);
+        // return to watching single keys
+        process.stdin.setRawMode(true);
+      });
+    } else if (
+      key &&
+      (key.name === "enter" || key.name === "return" || key.name === "down")
+    ) {
       rownumber += 1;
     } else if (key && key.name === "left") {
       colnumber -= 1;
