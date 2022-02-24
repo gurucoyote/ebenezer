@@ -82,16 +82,19 @@ async function run() {
         defaultKPL.map((f) => {
           rl.input.on("keypress", f);
         });
+        const cell = worksheet.getRow(rownumber).getCell(colnumber);
         rl.question("> ", function (answer) {
-          console.log("User entered: ", answer);
+          // console.log("// User entered: ", answer);
+          // write the edit to the sheet
+          cell.value = answer;
+          reportCell(cell);
           // return to watching single keys
           rl.input.setRawMode(true);
           rl.input.removeAllListeners("keypress");
           rl.input.on("keypress", kp);
         });
         // provide default anser that can be edited
-        var cel = worksheet.getRow(rownumber).getCell(colnumber);
-        rl.write(getCellResult(worksheet, cel.address));
+        rl.write(getCellResult(worksheet, cell.address));
         // return from the function, so that the latter code won't be executed
         return;
       case "enter":
@@ -114,12 +117,15 @@ async function run() {
     }
     rownumber = rownumber < 1 ? 1 : rownumber;
     colnumber = colnumber < 1 ? 1 : colnumber;
-    var cel = worksheet.getRow(rownumber).getCell(colnumber);
-    console.log(cel.address, getCellResult(worksheet, cel.address));
+    const cell = worksheet.getRow(rownumber).getCell(colnumber);
+    reportCell(cell);
   };
 
   rl.input.on("keypress", kp);
 
+  function reportCell(cel) {
+    console.log(cel.address, getCellResult(worksheet, cel.address));
+  }
   function getCellResult(worksheet, cellLabel) {
     if (worksheet.getCell(cellLabel).formula) {
       return parser.parse(worksheet.getCell(cellLabel).formula).result;
