@@ -97,6 +97,16 @@ async function run() {
         rl.write(getCellResult(worksheet, cell.address));
         // return from the function, so that the latter code won't be executed
         return;
+      case "s":
+        const filename = "output.xlsx";
+        return workbook.xlsx
+          .writeFile(filename)
+          .then(() => {
+            console.log(`sheet written to ${filename}`);
+          })
+          .catch((err) => {
+            console.log(err.message);
+          });
       case "enter":
       case "return":
       case "down":
