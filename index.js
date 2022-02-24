@@ -92,7 +92,8 @@ async function run() {
         // provide default anser that can be edited
         var cel = worksheet.getRow(rownumber).getCell(colnumber);
         rl.write(getCellResult(worksheet, cel.address));
-        break;
+        // return from the function, so that the latter code won't be executed
+        return;
       case "enter":
       case "return":
       case "down":
