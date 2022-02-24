@@ -62,25 +62,32 @@ async function run() {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-    historySize: 0,
+    historySize: 0, // so arrow up/down don't enter text ^^
   });
-  readline.emitKeypressEvents(rl.input);
   rl.input.setEncoding("utf-8");
   rl.input.setRawMode(true);
+  const defaultKPL = await rl.input.listeners("keypress");
+  // console.log(defaultKPL[0].toString( ));
+  rl.input.removeAllListeners("keypress");
   let rownumber = 1;
   let colnumber = 1;
-  const ppl = (_, key) => {
+  const kp = (_, key) => {
     switch (key.name) {
       case "q":
         process.exit();
-        break;
       case "i":
         // enter line edit mode
-        rl.input.removeListener("keypress", ppl);
+        rl.input.removeAllListeners("keypress");
+        // restore default kp listener
+        defaultKPL.map((f) => {
+          rl.input.on("keypress", f);
+        });
         rl.question("> ", function (answer) {
           console.log("User entered: ", answer);
           // return to watching single keys
-          rl.input.on("keypress", ppl);
+          rl.input.setRawMode(true);
+          rl.input.removeAllListeners("keypress");
+          rl.input.on("keypress", kp);
         });
         // provide default anser that can be edited
         var cel = worksheet.getRow(rownumber).getCell(colnumber);
@@ -110,7 +117,7 @@ async function run() {
     console.log(cel.address, getCellResult(worksheet, cel.address));
   };
 
-  rl.input.on("keypress", ppl);
+  rl.input.on("keypress", kp);
 
   function getCellResult(worksheet, cellLabel) {
     if (worksheet.getCell(cellLabel).formula) {
