@@ -85,9 +85,13 @@ async function run() {
         // return from the function, so that the latter code won't be executed
         return;
       case "s":
-        // const filename = "output.xlsx";
-        const filename = "output.csv";
-        return save(workbook, filename);
+        switchInsertMode();
+        rl.question("filename> ", function (fn) {
+          save(workbook, fn);
+          switchNormalMode();
+        });
+        rl.write(filename);
+        return;
       case "enter":
       case "return":
       case "down":
