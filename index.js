@@ -3,45 +3,15 @@ const readline = require("readline");
 const Excel = require("exceljs");
 const FormulaParser = require("hot-formula-parser").Parser;
 
-async function load(filename) {
-  const workbook = new Excel.Workbook();
-  const ext = path.extname(filename).toLowerCase();
-  console.log(`opening file ${filename}`);
-  if (ext === ".xlsx") {
-    await workbook.xlsx.readFile(filename);
-  } else if (ext === ".csv") {
-    const options = {
-      parserOptions: {
-        delimiter: ";",
-        quote: false,
-      },
-    };
-    await workbook.csv.readFile(filename, options);
-  } else {
-    console.log(`extension is: ${ext}`);
-    console.log(
-      "please provide a filename with either .xlsx or .csv extension."
-    );
-    process.exit(1);
-  }
-  return workbook;
-}
-async function save(workbook, filename) {
-  const ext = path.extname(filename).toLowerCase();
-  console.log(`saving file ${filename}`);
-  if (ext === ".xlsx") {
-    await workbook.xlsx.writeFile(filename);
-  } else {
-    const options = {
-      parserOptions: {
-        delimiter: ";",
-        quote: false,
-      },
-    };
-    await workbook.csv.writeFile(filename, options);
-  }
-  console.log(`sheet written to ${filename}`);
-}
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+  historySize: 0, // so arrow up/down don't enter text ^^
+});
+rl.input.setEncoding("utf-8");
+rl.input.setRawMode(true);
+const defaultKPL = rl.input.listeners("keypress");
+// console.log(defaultKPL[0].toString( ));
 async function run() {
   const filename = process.argv[2];
   const workbook = await load(filename);
@@ -80,39 +50,35 @@ async function run() {
       done(fragment);
     }
   });
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    historySize: 0, // so arrow up/down don't enter text ^^
-  });
-  rl.input.setEncoding("utf-8");
-  rl.input.setRawMode(true);
-  const defaultKPL = await rl.input.listeners("keypress");
-  // console.log(defaultKPL[0].toString( ));
-  rl.input.removeAllListeners("keypress");
   let rownumber = 1;
   let colnumber = 1;
-  const kp = (_, key) => {
+  function switchInsertMode() {
+    // enter line edit mode
+    rl.input.removeAllListeners("keypress");
+    // restore default kp listener
+    defaultKPL.map((f) => {
+      rl.input.on("keypress", f);
+    });
+  }
+  function switchNormalMode() {
+    // return to watching single keys
+    rl.input.setRawMode(true);
+    rl.input.removeAllListeners("keypress");
+    rl.input.on("keypress", kp);
+  }
+  function kp(_, key) {
     switch (key.name) {
       case "q":
         process.exit();
       case "i":
-        // enter line edit mode
-        rl.input.removeAllListeners("keypress");
-        // restore default kp listener
-        defaultKPL.map((f) => {
-          rl.input.on("keypress", f);
-        });
+        switchInsertMode();
         const cell = worksheet.getRow(rownumber).getCell(colnumber);
         rl.question("> ", function (answer) {
           // console.log("// User entered: ", answer);
           // write the edit to the sheet
           cell.value = answer;
           reportCell(cell);
-          // return to watching single keys
-          rl.input.setRawMode(true);
-          rl.input.removeAllListeners("keypress");
-          rl.input.on("keypress", kp);
+          switchNormalMode();
         });
         // provide default anser that can be edited
         rl.write(getCellResult(worksheet, cell.address));
@@ -144,8 +110,9 @@ async function run() {
     colnumber = colnumber < 1 ? 1 : colnumber;
     const cell = worksheet.getRow(rownumber).getCell(colnumber);
     reportCell(cell);
-  };
+  }
 
+  rl.input.removeAllListeners("keypress");
   rl.input.on("keypress", kp);
 
   function reportCell(cel) {
@@ -160,3 +127,47 @@ async function run() {
   }
 }
 run();
+async function load(filename) {
+  const workbook = new Excel.Workbook();
+  const ext = path.extname(filename).toLowerCase();
+  console.log(`opening file ${filename}`);
+  if (ext === ".xlsx") {
+    await workbook.xlsx.readFile(filename);
+  } else if (ext === ".csv") {
+    const options = {
+      parserOptions: {
+        delimiter: ";",
+        quote: false,
+      },
+    };
+    await workbook.csv.readFile(filename, options);
+  } else {
+    console.log(`extension is: ${ext}`);
+    console.log(
+      "please provide a filename with either .xlsx or .csv extension."
+    );
+    process.exit(1);
+  }
+  return workbook;
+}
+async function save(workbook, filename) {
+  const ext = path.extname(filename).toLowerCase();
+  console.log(`saving file ${filename}`);
+  if (ext === ".xlsx") {
+    await workbook.xlsx.writeFile(filename);
+  } else if (ext === ".csv") {
+    const options = {
+      formatterOptions: {
+        delimiter: ";",
+        quote: false,
+      },
+    };
+    await workbook.csv.writeFile(filename, options);
+  } else {
+    console.log(
+      "please use either .xlsx or .csv file extension to specify file format"
+    );
+    return;
+  }
+  console.log(`sheet written to ${filename}`);
+}
