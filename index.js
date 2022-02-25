@@ -2,14 +2,13 @@ const path = require("path");
 const readline = require("readline");
 const Excel = require("exceljs");
 const FormulaParser = require("hot-formula-parser").Parser;
-async function run() {
-  const parser = new FormulaParser();
+
+async function load(filename) {
   const workbook = new Excel.Workbook();
-  const file = process.argv[2];
-  const ext = path.extname(file).toLowerCase();
-  console.log(`opening file ${file}`);
+  const ext = path.extname(filename).toLowerCase();
+  console.log(`opening file ${filename}`);
   if (ext === ".xlsx") {
-    await workbook.xlsx.readFile(file);
+    await workbook.xlsx.readFile(filename);
   } else if (ext === ".csv") {
     const options = {
       parserOptions: {
@@ -17,7 +16,7 @@ async function run() {
         quote: false,
       },
     };
-    await workbook.csv.readFile(file, options);
+    await workbook.csv.readFile(filename, options);
   } else {
     console.log(`extension is: ${ext}`);
     console.log(
@@ -25,7 +24,29 @@ async function run() {
     );
     process.exit(1);
   }
-  var worksheet = workbook.getWorksheet(1);
+  return workbook;
+}
+async function save(workbook, filename) {
+  const ext = path.extname(filename).toLowerCase();
+  console.log(`saving file ${filename}`);
+  if (ext === ".xlsx") {
+    await workbook.xlsx.writeFile(filename);
+  } else {
+    const options = {
+      parserOptions: {
+        delimiter: ";",
+        quote: false,
+      },
+    };
+    await workbook.csv.writeFile(filename, options);
+  }
+  console.log(`sheet written to ${filename}`);
+}
+async function run() {
+  const filename = process.argv[2];
+  const workbook = await load(filename);
+  var worksheet = workbook.worksheets[0]; //the first one
+  const parser = new FormulaParser();
   parser.on("callCellValue", function (cellCoord, done) {
     if (worksheet.getCell(cellCoord.label).formula) {
       done(parser.parse(worksheet.getCell(cellCoord.label).formula).result);
@@ -98,15 +119,9 @@ async function run() {
         // return from the function, so that the latter code won't be executed
         return;
       case "s":
-        const filename = "output.xlsx";
-        return workbook.xlsx
-          .writeFile(filename)
-          .then(() => {
-            console.log(`sheet written to ${filename}`);
-          })
-          .catch((err) => {
-            console.log(err.message);
-          });
+        // const filename = "output.xlsx";
+        const filename = "output.csv";
+        return save(workbook, filename);
       case "enter":
       case "return":
       case "down":
