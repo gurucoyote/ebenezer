@@ -32,6 +32,7 @@ async function run() {
 
   const parser = new FormulaParser();
   parser.on("callCellValue", function (cellCoord, done) {
+    // console.debug("callCellValue", cellCoord.label);
     if (eb.worksheet.getCell(cellCoord.label).formula) {
       done(parser.parse(eb.worksheet.getCell(cellCoord.label).formula).result);
     } else {
@@ -39,6 +40,7 @@ async function run() {
     }
   });
   parser.on("callRangeValue", function (startCellCoord, endCellCoord, done) {
+    // console.debug("callRangeValue", startCellCoord.label, endCellCoord.label);
     var fragment = [];
 
     for (
@@ -79,7 +81,7 @@ async function run() {
           switchNormalMode();
         });
         // provide default anser that can be edited
-        rl.write(getCellResult(eb.worksheet, cell.address));
+        rl.write("" + getCellResult(eb.worksheet, cell.address));
         // return from the function, so that the latter code won't be executed
         return;
       case "s":
