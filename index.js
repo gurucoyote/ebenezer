@@ -12,6 +12,15 @@ rl.input.setEncoding("utf-8");
 rl.input.setRawMode(true);
 const defaultKPL = rl.input.listeners("keypress");
 // console.log(defaultKPL[0].toString( ));
+function convertLetterToNumber(str) {
+  str = str.toUpperCase();
+  let out = 0,
+    len = str.length;
+  for (pos = 0; pos < len; pos++) {
+    out += (str.charCodeAt(pos) - 64) * Math.pow(26, len - pos - 1);
+  }
+  return out;
+}
 async function run() {
   const filename = process.argv[2];
   const workbook = await load(filename);
@@ -91,6 +100,26 @@ async function run() {
           switchNormalMode();
         });
         rl.write(filename);
+        return;
+      case "g":
+        // goto cell
+        let currCell = worksheet.getRow(rownumber).getCell(colnumber);
+        switchInsertMode();
+        rl.question("goto> ", function (gt) {
+          try {
+            const [_, col, row] = gt.match(/([a-z]+)(\d+)/i);
+            rownumber = parseInt(row);
+            colnumber = convertLetterToNumber(col);
+            currCell = worksheet.getRow(rownumber).getCell(colnumber);
+          } catch (e) {
+            console.warn(`${gt} is not a valid cell address`);
+            // console.log(e);
+          } finally {
+            reportCell(currCell);
+            switchNormalMode();
+          }
+        });
+        rl.write(currCell.address);
         return;
       case "enter":
       case "return":
