@@ -1,5 +1,6 @@
 const path = require("path");
 const readline = require("readline");
+const repl = require("repl");
 const Excel = require("exceljs");
 const FormulaParser = require("hot-formula-parser").Parser;
 
@@ -11,7 +12,6 @@ const rl = readline.createInterface({
 rl.input.setEncoding("utf-8");
 rl.input.setRawMode(true);
 const defaultKPL = rl.input.listeners("keypress");
-// console.log(defaultKPL[0].toString( ));
 function convertLetterToNumber(str) {
   str = str.toUpperCase();
   let out = 0,
@@ -22,18 +22,22 @@ function convertLetterToNumber(str) {
   return out;
 }
 async function run() {
-  const filename = process.argv[2];
-  const workbook = await load(filename);
-  var worksheet = workbook.worksheets[0]; //the first one
+  const eb = {};
+  eb.filename = process.argv[2];
+  eb.workbook = await load(eb.filename);
+  eb.worksheet = eb.workbook.worksheets[0]; //the first one
+  eb.row = 1;
+  eb.col = 1;
+  switchNormalMode();
+
   const parser = new FormulaParser();
   parser.on("callCellValue", function (cellCoord, done) {
-    if (worksheet.getCell(cellCoord.label).formula) {
-      done(parser.parse(worksheet.getCell(cellCoord.label).formula).result);
+    if (eb.worksheet.getCell(cellCoord.label).formula) {
+      done(parser.parse(eb.worksheet.getCell(cellCoord.label).formula).result);
     } else {
-      done(worksheet.getCell(cellCoord.label).value);
+      done(eb.worksheet.getCell(cellCoord.label).value);
     }
   });
-
   parser.on("callRangeValue", function (startCellCoord, endCellCoord, done) {
     var fragment = [];
 
@@ -49,7 +53,7 @@ async function run() {
         col <= endCellCoord.column.index;
         col++
       ) {
-        colFragment.push(worksheet.getRow(row + 1).getCell(col + 1).value);
+        colFragment.push(eb.worksheet.getRow(row + 1).getCell(col + 1).value);
       }
 
       fragment.push(colFragment);
@@ -59,29 +63,14 @@ async function run() {
       done(fragment);
     }
   });
-  let rownumber = 1;
-  let colnumber = 1;
-  function switchInsertMode() {
-    // enter line edit mode
-    rl.input.removeAllListeners("keypress");
-    // restore default kp listener
-    defaultKPL.map((f) => {
-      rl.input.on("keypress", f);
-    });
-  }
-  function switchNormalMode() {
-    // return to watching single keys
-    rl.input.setRawMode(true);
-    rl.input.removeAllListeners("keypress");
-    rl.input.on("keypress", kp);
-  }
+
   function kp(_, key) {
     switch (key.name) {
       case "q":
         process.exit();
       case "i":
         switchInsertMode();
-        const cell = worksheet.getRow(rownumber).getCell(colnumber);
+        const cell = eb.worksheet.getRow(eb.row).getCell(eb.col);
         rl.question("> ", function (answer) {
           // console.log("// User entered: ", answer);
           // write the edit to the sheet
@@ -90,7 +79,7 @@ async function run() {
           switchNormalMode();
         });
         // provide default anser that can be edited
-        rl.write(getCellResult(worksheet, cell.address));
+        rl.write(getCellResult(eb.worksheet, cell.address));
         // return from the function, so that the latter code won't be executed
         return;
       case "s":
@@ -99,18 +88,18 @@ async function run() {
           save(workbook, fn);
           switchNormalMode();
         });
-        rl.write(filename);
+        rl.write(eb.filename);
         return;
       case "g":
         // goto cell
-        let currCell = worksheet.getRow(rownumber).getCell(colnumber);
+        let currCell = eb.worksheet.getRow(eb.row).getCell(eb.col);
         switchInsertMode();
         rl.question("goto> ", function (gt) {
           try {
             const [_, col, row] = gt.match(/([a-z]+)(\d+)/i);
-            rownumber = parseInt(row);
-            colnumber = convertLetterToNumber(col);
-            currCell = worksheet.getRow(rownumber).getCell(colnumber);
+            eb.row = parseInt(row);
+            eb.col = convertLetterToNumber(col);
+            currCell = eb.worksheet.getRow(eb.row).getCell(eb.col);
           } catch (e) {
             console.warn(`${gt} is not a valid cell address`);
             // console.log(e);
@@ -121,35 +110,48 @@ async function run() {
         });
         rl.write(currCell.address);
         return;
+      case "r":
+        rl.input.removeAllListeners("keypress");
+        const r = repl.start({
+          prompt: "repl>",
+          ignoreUndefined: true,
+        });
+        r.context.eb = eb;
+        r.defineCommand("q", {
+          help: "leave current repl",
+          action() {
+            this.clearBufferedCommand();
+            switchNormalMode();
+          },
+        });
+        // we might want to prevent the user to totally exit the app here
+        // delete r.commands.exit;
+        return;
       case "enter":
       case "return":
       case "down":
-        rownumber += 1;
+        eb.row += 1;
         break;
       case "left":
-        colnumber -= 1;
+        eb.col -= 1;
         break;
       case "right":
-        colnumber += 1;
+        eb.col += 1;
         break;
       case "up":
-        rownumber -= 1;
+        eb.row -= 1;
         break;
       default:
         // console.log("key", key);
         return;
     }
-    rownumber = rownumber < 1 ? 1 : rownumber;
-    colnumber = colnumber < 1 ? 1 : colnumber;
-    const cell = worksheet.getRow(rownumber).getCell(colnumber);
+    eb.row = eb.row < 1 ? 1 : eb.row;
+    eb.col = eb.col < 1 ? 1 : eb.col;
+    const cell = eb.worksheet.getRow(eb.row).getCell(eb.col);
     reportCell(cell);
   }
-
-  rl.input.removeAllListeners("keypress");
-  rl.input.on("keypress", kp);
-
   function reportCell(cel) {
-    console.log(cel.address, getCellResult(worksheet, cel.address));
+    console.log(cel.address, getCellResult(eb.worksheet, cel.address));
   }
   function getCellResult(worksheet, cellLabel) {
     if (worksheet.getCell(cellLabel).formula) {
@@ -157,6 +159,19 @@ async function run() {
     } else {
       return worksheet.getCell(cellLabel).value;
     }
+  }
+  function switchInsertMode() {
+    // enter line edit mode
+    rl.input.removeAllListeners("keypress");
+    // restore default kp listener
+    defaultKPL.map((f) => {
+      rl.input.on("keypress", f);
+    });
+  }
+  function switchNormalMode() {
+    rl.input.setRawMode(true);
+    rl.input.removeAllListeners("keypress");
+    rl.input.on("keypress", kp);
   }
 }
 run();
