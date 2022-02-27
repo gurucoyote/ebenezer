@@ -76,12 +76,19 @@ async function run() {
         rl.question("> ", function (answer) {
           // console.log("// User entered: ", answer);
           // write the edit to the sheet
-          cell.value = answer;
+          if (answer.charAt(0) === "=") {
+            cell.formula = answer.substring(1); // substring(1) = from 2nd char to end of string
+          } else {
+            cell.value = answer;
+          }
           reportCell(cell);
           switchNormalMode();
         });
         // provide default anser that can be edited
-        rl.write("" + getCellResult(eb.worksheet, cell.address));
+        let cellcontent;
+        if (cell.formula) cellcontent = "=" + cell.formula;
+        else cellcontent = cell.value;
+        rl.write(cellcontent);
         // return from the function, so that the latter code won't be executed
         return;
       case "s":
@@ -152,14 +159,19 @@ async function run() {
     const cell = eb.worksheet.getRow(eb.row).getCell(eb.col);
     reportCell(cell);
   }
-  function reportCell(cel) {
-    console.log(cel.address, getCellResult(eb.worksheet, cel.address));
+  function reportCell(cell) {
+    let delim = ":";
+    if (cell.formula) {
+      delim = "formula result =";
+      // console.log('formula:', cell.formula);
+    }
+    console.log(cell.address, delim, getCellResult(eb.worksheet, cell.address));
   }
-  function getCellResult(worksheet, cellLabel) {
-    if (worksheet.getCell(cellLabel).formula) {
-      return parser.parse(worksheet.getCell(cellLabel).formula).result;
+  function getCellResult(worksheet, cellAddress) {
+    if (worksheet.getCell(cellAddress).formula) {
+      return parser.parse(worksheet.getCell(cellAddress).formula).result;
     } else {
-      return worksheet.getCell(cellLabel).value;
+      return worksheet.getCell(cellAddress).value;
     }
   }
   function switchInsertMode() {
