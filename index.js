@@ -12,18 +12,10 @@ const rl = readline.createInterface({
 rl.input.setEncoding("utf-8");
 rl.input.setRawMode(true);
 const defaultKPL = rl.input.listeners("keypress");
-function convertLetterToNumber(str) {
-  str = str.toUpperCase();
-  let out = 0,
-    len = str.length;
-  for (pos = 0; pos < len; pos++) {
-    out += (str.charCodeAt(pos) - 64) * Math.pow(26, len - pos - 1);
-  }
-  return out;
-}
 async function run() {
   const eb = {};
   eb.filename = process.argv[2];
+  eb.filenames = [eb.filename];
   eb.workbook = await load(eb.filename);
   eb.worksheet = eb.workbook.worksheets[0]; //the first one
   eb.row = 1;
@@ -74,7 +66,6 @@ async function run() {
         switchInsertMode();
         const cell = eb.worksheet.getRow(eb.row).getCell(eb.col);
         rl.question("> ", function (answer) {
-          // console.log("// User entered: ", answer);
           // write the edit to the sheet
           if (answer.charAt(0) === "=") {
             cell.formula = answer.substring(1); // substring(1) = from 2nd char to end of string
@@ -91,13 +82,20 @@ async function run() {
         rl.write(cellcontent);
         // return from the function, so that the latter code won't be executed
         return;
-      case "s":
+      case "w":
         switchInsertMode();
-        rl.question("filename> ", function (fn) {
-          save(workbook, fn);
+        rl.history = eb.filenames;
+        console.log(
+          "enter new filename, or use up/down arrow to choose previous"
+        );
+        rl.question("filename> ", async function (fn) {
+          if (await save(eb.workbook, fn)) {
+            // eb.filenames.push(fn);
+            eb.filenames = [...new Set(eb.filenames).add(fn)];
+          }
           switchNormalMode();
         });
-        rl.write(eb.filename);
+        // rl.write(eb.filename);
         return;
       case "g":
         // goto cell
@@ -214,9 +212,10 @@ async function load(filename) {
 }
 async function save(workbook, filename) {
   const ext = path.extname(filename).toLowerCase();
-  console.log(`saving file ${filename}`);
   if (ext === ".xlsx") {
     await workbook.xlsx.writeFile(filename);
+    console.log(`sheet written to ${filename}`);
+    return true;
   } else if (ext === ".csv") {
     const options = {
       formatterOptions: {
@@ -225,11 +224,21 @@ async function save(workbook, filename) {
       },
     };
     await workbook.csv.writeFile(filename, options);
+    console.log(`sheet written to ${filename}`);
+    return true;
   } else {
     console.log(
       "please use either .xlsx or .csv file extension to specify file format"
     );
-    return;
+    return false;
   }
-  console.log(`sheet written to ${filename}`);
+}
+function convertLetterToNumber(str) {
+  str = str.toUpperCase();
+  let out = 0,
+    len = str.length;
+  for (pos = 0; pos < len; pos++) {
+    out += (str.charCodeAt(pos) - 64) * Math.pow(26, len - pos - 1);
+  }
+  return out;
 }
