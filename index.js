@@ -96,6 +96,15 @@ async function run() {
           switchNormalMode();
         });
         // rl.write(eb.filename);
+        // enter arrow up to enter history
+        rl.write("", {
+          sequence: "\x1B[A",
+          name: "up",
+          ctrl: false,
+          meta: false,
+          shift: false,
+          code: "[A",
+        });
         return;
       case "g":
         // goto cell
