@@ -82,9 +82,37 @@ async function run() {
         rl.write(cellcontent);
         // return from the function, so that the latter code won't be executed
         return;
+      case "s":
+        // select a worksheet
+        switchInsertMode();
+        rl.question("ws>", async function (answer) {
+          console.log(`you picked ${answer}`);
+          try {
+            const ws = eb.workbook.getWorksheet(answer);
+            if (ws) {
+              eb.worksheet = ws;
+            } else {
+              console.log("no such sheet");
+            }
+          } catch (e) {
+            console.error(e);
+          }
+          switchNormalMode();
+        });
+        eb.workbook.worksheets.map((ws) => {
+          rl.history.push(ws.name);
+        });
+        rl.write("", {
+          sequence: "\x1B[A",
+          name: "up",
+          ctrl: false,
+          meta: false,
+          shift: false,
+          code: "[A",
+        });
+        return;
       case "w":
         switchInsertMode();
-        rl.history = eb.filenames;
         console.log(
           "enter new filename, or use up/down arrow to choose previous"
         );
@@ -95,8 +123,8 @@ async function run() {
           }
           switchNormalMode();
         });
-        // rl.write(eb.filename);
-        // enter arrow up to enter history
+        rl.history = eb.filenames;
+        // write arrow up to enter history
         rl.write("", {
           sequence: "\x1B[A",
           name: "up",
@@ -133,6 +161,7 @@ async function run() {
           ignoreUndefined: true,
         });
         r.context.eb = eb;
+        r.context.rl = rl;
         r.defineCommand("q", {
           help: "leave current repl",
           action() {
