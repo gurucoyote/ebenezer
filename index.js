@@ -70,6 +70,31 @@ async function run() {
     if (cmds[keySequence]) cmds[keySequence].f();
   }
 
+  const help = {
+    help: "print this help message",
+    f: () => {
+      let compact = {};
+      Object.entries(cmds).map((c) => {
+        const [k, v] = c;
+        if (!compact[v.help]) {
+          compact[v.help] = [k];
+        } else {
+          compact[v.help].push(k);
+        }
+      });
+      Object.entries(compact).map((e) => {
+        const [help, cmds] = e;
+        console.log(cmds.join(", "), " - ", help);
+      });
+    },
+  };
+  const down = {
+    help: "move one cell down",
+    f: () => {
+      eb.row += 1;
+      reportCell();
+    },
+  };
   let cmds = {
     ab: {
       help: "a simple test for sequences of keys",
@@ -223,15 +248,9 @@ async function run() {
         });
       },
     },
-    enter: { f: () => {} },
-    return: { f: () => {} },
-    down: {
-      help: "move one cell down",
-      f: () => {
-        eb.row += 1;
-        reportCell();
-      },
-    },
+    enter: down,
+    return: down,
+    down: down,
     left: {
       help: "move one cell left",
       f: () => {
@@ -253,14 +272,8 @@ async function run() {
         reportCell();
       },
     },
-    h: {
-      help: "print this help message",
-      f: () => {
-        Object.keys(cmds).forEach((key) => {
-          console.log(key, " - ", cmds[key].help);
-        });
-      },
-    },
+    h: help,
+    "?": help,
   };
   function reportCell(cell) {
     if (!cell) {
