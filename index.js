@@ -82,17 +82,32 @@ async function run() {
         rl.write(cellcontent);
         // return from the function, so that the latter code won't be executed
         return;
+      case "c":
+        // create a worksheet
+        switchInsertMode();
+        rl.question("sheetname?", function (answer) {
+          try {
+            eb.worksheet = eb.workbook.addWorksheet(answer);
+            console.log(`created sheet ${answer}`);
+          } catch (e) {
+            console.error(e.message);
+          } finally {
+            switchNormalMode();
+            return;
+          }
+        });
+        return;
       case "s":
         // select a worksheet
         switchInsertMode();
         rl.question("ws>", async function (answer) {
-          console.log(`you picked ${answer}`);
           try {
             const ws = eb.workbook.getWorksheet(answer);
             if (ws) {
               eb.worksheet = ws;
+              console.log(`selected ws ${answer}`);
             } else {
-              console.log("no such sheet");
+              console.log("no such sheet.");
             }
           } catch (e) {
             console.error(e);
@@ -154,7 +169,7 @@ async function run() {
         });
         rl.write(currCell.address);
         return;
-      case "r":
+      case ":":
         rl.input.removeAllListeners("keypress");
         const r = repl.start({
           prompt: "repl>",
