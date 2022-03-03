@@ -59,7 +59,7 @@ async function run() {
   });
 
   function kp(_, key) {
-    switch (key.name) {
+    switch (key.name || key.sequence) {
       case "q":
         process.exit();
       case "i":
