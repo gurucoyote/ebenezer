@@ -60,8 +60,12 @@ async function run() {
   });
 
   let keySequence = "";
-  function kp(_, key) {
-    keySequence = keySequence + (key.name || key.sequence);
+  function kp(c, key) {
+    if (c && c.match(/[a-zA-Z]/)) {
+      keySequence += c;
+    } else {
+      keySequence += key.name || key.sequence;
+    }
     let clearSequenceTimeout;
     clearTimeout(clearSequenceTimeout);
     clearSequenceTimeout = setTimeout(function () {
@@ -95,13 +99,22 @@ async function run() {
       reportCell();
     },
   };
-  let cmds = {
-    ab: {
-      help: "a simple test for sequences of keys",
-      f: () => {
-        console.log("saw:" + keySequence);
-      },
+  const insertRowBelow = {
+    help: "insert blank row below current",
+    f: () => {
+      eb.row += 1;
+      eb.worksheet.insertRow(eb.row);
+      reportCell();
     },
+  };
+  const insertRowAbove = {
+    help: "insert blank row above current",
+    f: () => {
+      eb.worksheet.insertRow(eb.row);
+      reportCell();
+    },
+  };
+  let cmds = {
     q: {
       help: "quit the program, no questions asked",
       f: () => {
@@ -131,8 +144,10 @@ async function run() {
         rl.write(cellcontent);
       },
     },
-    c: {
-      help: "create a worksheet",
+    o: insertRowBelow,
+    O: insertRowAbove,
+    ns: {
+      help: "new sheet",
       f: () => {
         // create a worksheet
         switchInsertMode();
@@ -148,8 +163,8 @@ async function run() {
         });
       },
     },
-    s: {
-      help: "select a worksheet",
+    ps: {
+      help: "pick sheet",
       f: () => {
         // select a worksheet
         switchInsertMode();
@@ -180,7 +195,7 @@ async function run() {
         });
       },
     },
-    w: {
+    wb: {
       help: "write the workbook to disk, asks for filename",
       f: () => {
         switchInsertMode();
@@ -239,6 +254,7 @@ async function run() {
         });
         r.context.eb = eb;
         r.context.rl = rl;
+        r.context.humanFileSize = humanFileSize;
         r.defineCommand("q", {
           help: "leave current repl",
           action() {
@@ -274,6 +290,13 @@ async function run() {
     },
     h: help,
     "?": help,
+  };
+  // define commands at later stage:
+  cmds["ab"] = {
+    help: "a simple test for sequences of keys, outputs 'ab' if that sequence was enterd",
+    f: () => {
+      console.log("saw:" + keySequence);
+    },
   };
   function reportCell(cell) {
     if (!cell) {
@@ -364,4 +387,12 @@ function convertLetterToNumber(str) {
     out += (str.charCodeAt(pos) - 64) * Math.pow(26, len - pos - 1);
   }
   return out;
+}
+function humanFileSize(size) {
+  var i = Math.floor(Math.log(size) / Math.log(1024));
+  return (
+    (size / Math.pow(1024, i)).toFixed(2) * 1 +
+    " " +
+    ["B", "kB", "MB", "GB", "TB"][i]
+  );
 }
