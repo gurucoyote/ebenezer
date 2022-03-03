@@ -66,161 +66,168 @@ async function run() {
     clearSequenceTimeout = setTimeout(function () {
       keySequence = "";
     }, 500);
-    switch (keySequence) {
-      case "ab":
-        console.log("saw:" + keySequence);
-        return;
-      case "q":
-        process.exit();
-      case "i":
-        switchInsertMode();
-        const cell = eb.worksheet.getRow(eb.row).getCell(eb.col);
-        rl.question("cell value> ", function (answer) {
-          // write the edit to the sheet
-          if (answer.charAt(0) === "=") {
-            cell.value = { formula: answer.substring(1) };
-            // substring(1) = from 2nd char to end of string
-          } else {
-            cell.value = answer;
-          }
-          reportCell(cell);
-          switchNormalMode();
-        });
-        // provide default anser that can be edited
-        let cellcontent;
-        if (cell.formula) cellcontent = "=" + cell.formula;
-        else cellcontent = cell.value;
-        rl.write(cellcontent);
-        // return from the function, so that the latter code won't be executed
-        return;
-      case "c":
-        // create a worksheet
-        switchInsertMode();
-        rl.question("sheetname?", function (answer) {
-          try {
-            eb.worksheet = eb.workbook.addWorksheet(answer);
-            console.log(`created sheet ${answer}`);
-          } catch (e) {
-            console.error(e.message);
-          } finally {
-            switchNormalMode();
-            return;
-          }
-        });
-        return;
-      case "s":
-        // select a worksheet
-        switchInsertMode();
-        rl.question("ws>", async function (answer) {
-          try {
-            const ws = eb.workbook.getWorksheet(answer);
-            if (ws) {
-              eb.worksheet = ws;
-              console.log(`selected ws ${answer}`);
-            } else {
-              console.log("no such sheet.");
-            }
-          } catch (e) {
-            console.error(e);
-          }
-          switchNormalMode();
-        });
-        eb.workbook.worksheets.map((ws) => {
-          rl.history.push(ws.name);
-        });
-        rl.write("", {
-          sequence: "\x1B[A",
-          name: "up",
-          ctrl: false,
-          meta: false,
-          shift: false,
-          code: "[A",
-        });
-        return;
-      case "w":
-        switchInsertMode();
-        console.log(
-          "enter new filename, or use up/down arrow to choose previous"
-        );
-        rl.question("filename> ", async function (fn) {
-          if (await save(eb.workbook, fn)) {
-            // eb.filenames.push(fn);
-            eb.filenames = [...new Set(eb.filenames).add(fn)];
-          }
-          switchNormalMode();
-        });
-        rl.history = eb.filenames;
-        // write arrow up to enter history
-        rl.write("", {
-          sequence: "\x1B[A",
-          name: "up",
-          ctrl: false,
-          meta: false,
-          shift: false,
-          code: "[A",
-        });
-        return;
-      case "g":
-        // goto cell
-        let currCell = eb.worksheet.getRow(eb.row).getCell(eb.col);
-        switchInsertMode();
-        rl.question("goto> ", function (gt) {
-          try {
-            const [_, col, row] = gt.match(/([a-z]+)(\d+)/i);
-            eb.row = parseInt(row);
-            eb.col = convertLetterToNumber(col);
-            currCell = eb.worksheet.getRow(eb.row).getCell(eb.col);
-          } catch (e) {
-            console.warn(`${gt} is not a valid cell address`);
-            // console.log(e);
-          } finally {
-            reportCell(currCell);
-            switchNormalMode();
-          }
-        });
-        rl.write(currCell.address);
-        return;
-      case ":":
-        rl.input.removeAllListeners("keypress");
-        const r = repl.start({
-          prompt: "repl>",
-          ignoreUndefined: true,
-        });
-        r.context.eb = eb;
-        r.context.rl = rl;
-        r.defineCommand("q", {
-          help: "leave current repl",
-          action() {
-            this.clearBufferedCommand();
-            switchNormalMode();
-          },
-        });
-        // we might want to prevent the user to totally exit the app here
-        // delete r.commands.exit;
-        return;
-      case "enter":
-      case "return":
-      case "down":
-        eb.row += 1;
-        break;
-      case "left":
-        eb.col -= 1;
-        break;
-      case "right":
-        eb.col += 1;
-        break;
-      case "up":
-        eb.row -= 1;
-        break;
-      default:
-        // console.log("key", key);
-        return;
-    }
+    if (cmds[keySequence]) cmds[keySequence]();
     eb.row = eb.row < 1 ? 1 : eb.row;
     eb.col = eb.col < 1 ? 1 : eb.col;
     const cell = eb.worksheet.getRow(eb.row).getCell(eb.col);
     reportCell(cell);
   }
+
+  let cmds = {
+    ab: () => {
+      console.log("saw:" + keySequence);
+      return;
+    },
+    q: () => {
+      process.exit();
+    },
+    i: () => {
+      switchInsertMode();
+      const cell = eb.worksheet.getRow(eb.row).getCell(eb.col);
+      rl.question("cell value> ", function (answer) {
+        // write the edit to the sheet
+        if (answer.charAt(0) === "=") {
+          cell.value = { formula: answer.substring(1) };
+          // substring(1) = from 2nd char to end of string
+        } else {
+          cell.value = answer;
+        }
+        reportCell(cell);
+        switchNormalMode();
+      });
+      // provide default anser that can be edited
+      let cellcontent;
+      if (cell.formula) cellcontent = "=" + cell.formula;
+      else cellcontent = cell.value;
+      rl.write(cellcontent);
+      // return from the function, so that the latter code won't be executed
+      return;
+    },
+    c: () => {
+      // create a worksheet
+      switchInsertMode();
+      rl.question("sheetname?", function (answer) {
+        try {
+          eb.worksheet = eb.workbook.addWorksheet(answer);
+          console.log(`created sheet ${answer}`);
+        } catch (e) {
+          console.error(e.message);
+        } finally {
+          switchNormalMode();
+          return;
+        }
+      });
+      return;
+    },
+    s: () => {
+      // select a worksheet
+      switchInsertMode();
+      rl.question("ws>", async function (answer) {
+        try {
+          const ws = eb.workbook.getWorksheet(answer);
+          if (ws) {
+            eb.worksheet = ws;
+            console.log(`selected ws ${answer}`);
+          } else {
+            console.log("no such sheet.");
+          }
+        } catch (e) {
+          console.error(e);
+        }
+        switchNormalMode();
+      });
+      eb.workbook.worksheets.map((ws) => {
+        rl.history.push(ws.name);
+      });
+      rl.write("", {
+        sequence: "\x1B[A",
+        name: "up",
+        ctrl: false,
+        meta: false,
+        shift: false,
+        code: "[A",
+      });
+      return;
+    },
+    w: () => {
+      switchInsertMode();
+      console.log(
+        "enter new filename, or use up/down arrow to choose previous"
+      );
+      rl.question("filename> ", async function (fn) {
+        if (await save(eb.workbook, fn)) {
+          // eb.filenames.push(fn);
+          eb.filenames = [...new Set(eb.filenames).add(fn)];
+        }
+        switchNormalMode();
+      });
+      rl.history = eb.filenames;
+      // write arrow up to enter history
+      rl.write("", {
+        sequence: "\x1B[A",
+        name: "up",
+        ctrl: false,
+        meta: false,
+        shift: false,
+        code: "[A",
+      });
+      return;
+    },
+    g: () => {
+      // goto cell
+      let currCell = eb.worksheet.getRow(eb.row).getCell(eb.col);
+      switchInsertMode();
+      rl.question("goto> ", function (gt) {
+        try {
+          const [_, col, row] = gt.match(/([a-z]+)(\d+)/i);
+          eb.row = parseInt(row);
+          eb.col = convertLetterToNumber(col);
+          currCell = eb.worksheet.getRow(eb.row).getCell(eb.col);
+        } catch (e) {
+          console.warn(`${gt} is not a valid cell address`);
+          // console.log(e);
+        } finally {
+          reportCell(currCell);
+          switchNormalMode();
+        }
+      });
+      rl.write(currCell.address);
+      return;
+    },
+    ":": () => {
+      rl.input.removeAllListeners("keypress");
+      const r = repl.start({
+        prompt: "repl>",
+        ignoreUndefined: true,
+      });
+      r.context.eb = eb;
+      r.context.rl = rl;
+      r.defineCommand("q", {
+        help: "leave current repl",
+        action() {
+          this.clearBufferedCommand();
+          switchNormalMode();
+        },
+      });
+      // we might want to prevent the user to totally exit the app here
+      // delete r.commands.exit;
+      return;
+    },
+    enter: () => {},
+    return: () => {},
+    down: () => {
+      eb.row += 1;
+    },
+    left: () => {
+      eb.col -= 1;
+    },
+    right: () => {
+      eb.col += 1;
+    },
+    up: () => {
+      eb.row -= 1;
+    },
+  };
   function reportCell(cell) {
     let delim = ":";
     if (cell.formula) {
