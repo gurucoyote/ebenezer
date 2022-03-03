@@ -20,6 +20,7 @@ async function run() {
   eb.worksheet = eb.workbook.worksheets[0]; //the first one
   eb.row = 1;
   eb.col = 1;
+  reportCell();
   switchNormalMode();
 
   const parser = new FormulaParser();
@@ -67,10 +68,6 @@ async function run() {
       keySequence = "";
     }, 500);
     if (cmds[keySequence]) cmds[keySequence].f();
-    eb.row = eb.row < 1 ? 1 : eb.row;
-    eb.col = eb.col < 1 ? 1 : eb.col;
-    const cell = eb.worksheet.getRow(eb.row).getCell(eb.col);
-    reportCell(cell);
   }
 
   let cmds = {
@@ -107,8 +104,6 @@ async function run() {
         if (cell.formula) cellcontent = "=" + cell.formula;
         else cellcontent = cell.value;
         rl.write(cellcontent);
-        // return from the function, so that the latter code won't be executed
-        return;
       },
     },
     c: {
@@ -124,10 +119,8 @@ async function run() {
             console.error(e.message);
           } finally {
             switchNormalMode();
-            return;
           }
         });
-        return;
       },
     },
     s: {
@@ -160,7 +153,6 @@ async function run() {
           shift: false,
           code: "[A",
         });
-        return;
       },
     },
     w: {
@@ -187,7 +179,6 @@ async function run() {
           shift: false,
           code: "[A",
         });
-        return;
       },
     },
     g: {
@@ -211,7 +202,6 @@ async function run() {
           }
         });
         rl.write(currCell.address);
-        return;
       },
     },
     ":": {
@@ -231,7 +221,6 @@ async function run() {
             switchNormalMode();
           },
         });
-        return;
       },
     },
     enter: { f: () => {} },
@@ -240,24 +229,28 @@ async function run() {
       help: "move one cell down",
       f: () => {
         eb.row += 1;
+        reportCell();
       },
     },
     left: {
       help: "move one cell left",
       f: () => {
         eb.col -= 1;
+        reportCell();
       },
     },
     right: {
       help: "move one cell right",
       f: () => {
         eb.col += 1;
+        reportCell();
       },
     },
     up: {
       help: "move one cell up",
       f: () => {
         eb.row -= 1;
+        reportCell();
       },
     },
     h: {
@@ -270,6 +263,11 @@ async function run() {
     },
   };
   function reportCell(cell) {
+    if (!cell) {
+      eb.row = eb.row < 1 ? 1 : eb.row;
+      eb.col = eb.col < 1 ? 1 : eb.col;
+      cell = eb.worksheet.getRow(eb.row).getCell(eb.col);
+    }
     let delim = ":";
     if (cell.formula) {
       delim = "formula result =";
