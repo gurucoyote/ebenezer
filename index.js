@@ -65,10 +65,11 @@ async function run() {
       case "i":
         switchInsertMode();
         const cell = eb.worksheet.getRow(eb.row).getCell(eb.col);
-        rl.question("> ", function (answer) {
+        rl.question("cell value> ", function (answer) {
           // write the edit to the sheet
           if (answer.charAt(0) === "=") {
-            cell.formula = answer.substring(1); // substring(1) = from 2nd char to end of string
+            cell.value = { formula: answer.substring(1) };
+            // substring(1) = from 2nd char to end of string
           } else {
             cell.value = answer;
           }
