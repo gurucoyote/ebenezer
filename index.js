@@ -58,8 +58,18 @@ async function run() {
     }
   });
 
+  let keySequence = "";
   function kp(_, key) {
-    switch (key.name || key.sequence) {
+    keySequence = keySequence + (key.name || key.sequence);
+    let clearSequenceTimeout;
+    clearTimeout(clearSequenceTimeout);
+    clearSequenceTimeout = setTimeout(function () {
+      keySequence = "";
+    }, 500);
+    switch (keySequence) {
+      case "ab":
+        console.log("saw:" + keySequence);
+        return;
       case "q":
         process.exit();
       case "i":
