@@ -1,3 +1,4 @@
+#! /usr/bin/env node
 const path = require("path");
 const readline = require("readline");
 const repl = require("repl");
@@ -15,7 +16,7 @@ const defaultKPL = rl.input.listeners("keypress");
 async function run() {
   const eb = {};
   eb.filename = process.argv[2];
-  eb.filenames = [eb.filename];
+  eb.filenames = [eb.filename || "untitled.xlsx"];
   eb.workbook = await load(eb.filename);
   eb.worksheet = eb.workbook.worksheets[0]; //the first one
   eb.row = 1;
@@ -204,7 +205,6 @@ async function run() {
         );
         rl.question("filename> ", async function (fn) {
           if (await save(eb.workbook, fn)) {
-            // eb.filenames.push(fn);
             eb.filenames = [...new Set(eb.filenames).add(fn)];
           }
           switchNormalMode();
@@ -335,6 +335,11 @@ async function run() {
 run();
 async function load(filename) {
   const workbook = new Excel.Workbook();
+  if (!filename) {
+    console.log("creating empty workbook");
+    workbook.addWorksheet("Mappe 1");
+    return workbook;
+  }
   const ext = path.extname(filename).toLowerCase();
   console.log(`opening file ${filename}`);
   if (ext === ".xlsx") {
