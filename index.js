@@ -21,6 +21,7 @@ async function run() {
   eb.worksheet = eb.workbook.worksheets[0]; //the first one
   eb.row = 1;
   eb.col = 1;
+  console.log(`on worksheet ${eb.worksheet.name}`);
   reportCell();
   switchNormalMode();
 
@@ -127,6 +128,10 @@ async function run() {
       f: () => {
         switchInsertMode();
         const cell = eb.worksheet.getRow(eb.row).getCell(eb.col);
+        rl.history = uniqueColumnValues(eb.col);
+        let cellcontent;
+        if (cell.formula) cellcontent = "=" + cell.formula;
+        else cellcontent = cell.value;
         rl.question("cell value> ", function (answer) {
           // write the edit to the sheet
           if (answer.charAt(0) === "=") {
@@ -139,9 +144,6 @@ async function run() {
           switchNormalMode();
         });
         // provide default anser that can be edited
-        let cellcontent;
-        if (cell.formula) cellcontent = "=" + cell.formula;
-        else cellcontent = cell.value;
         rl.write(cellcontent);
       },
     },
@@ -298,6 +300,15 @@ async function run() {
       console.log("saw:" + keySequence);
     },
   };
+  function uniqueColumnValues(col) {
+    const column = eb.worksheet.getColumn(col || eb.col);
+    let uv = new Set();
+    column.eachCell((c) => {
+      uv.add(c.value);
+    });
+    // console.debug(uv);
+    return [...uv];
+  }
   function reportCell(cell) {
     if (!cell) {
       eb.row = eb.row < 1 ? 1 : eb.row;
