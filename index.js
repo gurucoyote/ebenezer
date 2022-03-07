@@ -132,17 +132,21 @@ async function run() {
         let cellcontent;
         if (cell.formula) cellcontent = "=" + cell.formula;
         else cellcontent = cell.value;
-        rl.question("cell value> ", function (answer) {
-          // write the edit to the sheet
-          if (answer.charAt(0) === "=") {
-            cell.value = { formula: answer.substring(1) };
-            // substring(1) = from 2nd char to end of string
-          } else {
-            cell.value = answer;
+        rl.question(
+          "cell value> ",
+          { signal: eb.abortSignal },
+          function (answer) {
+            // write the edit to the sheet
+            if (answer.charAt(0) === "=") {
+              cell.value = { formula: answer.substring(1) };
+              // substring(1) = from 2nd char to end of string
+            } else {
+              cell.value = answer;
+            }
+            reportCell(cell);
+            switchNormalMode();
           }
-          reportCell(cell);
-          switchNormalMode();
-        });
+        );
         // provide default anser that can be edited
         rl.write(cellcontent);
       },
@@ -154,16 +158,20 @@ async function run() {
       f: () => {
         // create a worksheet
         switchInsertMode();
-        rl.question("sheetname?", function (answer) {
-          try {
-            eb.worksheet = eb.workbook.addWorksheet(answer);
-            console.log(`created sheet ${answer}`);
-          } catch (e) {
-            console.error(e.message);
-          } finally {
-            switchNormalMode();
+        rl.question(
+          "sheetname?",
+          { signal: eb.abortSignal },
+          function (answer) {
+            try {
+              eb.worksheet = eb.workbook.addWorksheet(answer);
+              console.log(`created sheet ${answer}`);
+            } catch (e) {
+              console.error(e.message);
+            } finally {
+              switchNormalMode();
+            }
           }
-        });
+        );
       },
     },
     ps: {
@@ -171,7 +179,7 @@ async function run() {
       f: () => {
         // select a worksheet
         switchInsertMode();
-        rl.question("ws>", async function (answer) {
+        rl.question("ws>", { signal: eb.abortSignal }, async function (answer) {
           try {
             const ws = eb.workbook.getWorksheet(answer);
             if (ws) {
@@ -205,12 +213,16 @@ async function run() {
         console.log(
           "enter new filename, or use up/down arrow to choose previous"
         );
-        rl.question("filename> ", async function (fn) {
-          if (await save(eb.workbook, fn)) {
-            eb.filenames = [...new Set(eb.filenames).add(fn)];
+        rl.question(
+          "filename> ",
+          { signal: eb.abortSignal },
+          async function (fn) {
+            if (await save(eb.workbook, fn)) {
+              eb.filenames = [...new Set(eb.filenames).add(fn)];
+            }
+            switchNormalMode();
           }
-          switchNormalMode();
-        });
+        );
         rl.history = eb.filenames;
         // write arrow up to enter history
         rl.write("", {
@@ -229,7 +241,7 @@ async function run() {
         // goto cell
         let currCell = eb.worksheet.getRow(eb.row).getCell(eb.col);
         switchInsertMode();
-        rl.question("goto> ", function (gt) {
+        rl.question("goto> ", { signal: eb.abortSignal }, function (gt) {
           try {
             const [_, col, row] = gt.match(/([a-z]+)(\d+)/i);
             eb.row = parseInt(row);
@@ -335,6 +347,19 @@ async function run() {
     // restore default kp listener
     defaultKPL.map((f) => {
       rl.input.on("keypress", f);
+    });
+    // install abort controller for escape key
+    const ac = new AbortController();
+    eb.abortSignal = ac.signal;
+    // eb.abortSignal.addEventListener('abort', () => {
+    //   console.log('The question was aborted');
+    // }, { once: true });
+    rl.input.on("keypress", (_, key) => {
+      if (key.name === "escape") {
+        ac.abort();
+        switchNormalMode();
+      }
+      // else console.log(key.name)
     });
   }
   function switchNormalMode() {
