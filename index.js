@@ -217,7 +217,7 @@ async function run() {
           "filename> ",
           { signal: eb.abortSignal },
           async function (fn) {
-            if (await save(eb.workbook, fn)) {
+            if (await save(eb, fn)) {
               eb.filenames = [...new Set(eb.filenames).add(fn)];
             }
             switchNormalMode();
@@ -397,20 +397,21 @@ async function load(filename) {
   }
   return workbook;
 }
-async function save(workbook, filename) {
+async function save(eb, filename) {
   const ext = path.extname(filename).toLowerCase();
   if (ext === ".xlsx") {
-    await workbook.xlsx.writeFile(filename);
+    await eb.workbook.xlsx.writeFile(filename);
     console.log(`sheet written to ${filename}`);
     return true;
   } else if (ext === ".csv") {
     const options = {
+      sheetName: eb.worksheet.name, // the currently selected
       formatterOptions: {
         delimiter: ";",
         quote: false,
       },
     };
-    await workbook.csv.writeFile(filename, options);
+    await eb.workbook.csv.writeFile(filename, options);
     console.log(`sheet written to ${filename}`);
     return true;
   } else {
