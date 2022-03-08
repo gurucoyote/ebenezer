@@ -101,6 +101,45 @@ async function run() {
       reportCell();
     },
   };
+  const deleteRow = {
+    help: "delete current row, shifting below rows up",
+    f: () => {
+      console.log(`removing row ${eb.row}`);
+      eb.yank = { type: "row", y: eb.worksheet.getRow(eb.row).values };
+      // console.log(eb.yank);
+      eb.worksheet.spliceRows(eb.row, 1);
+      reportCell();
+    },
+  };
+  const yankRow = {
+    help: "yank the current row into paste buffer",
+    f: () => {
+      console.log(`yanking row ${eb.row}`);
+      eb.yank = { type: "row", y: eb.worksheet.getRow(eb.row).values };
+    },
+  };
+  function paste(dir) {
+    if (eb.yank && eb.yank.type === "row") {
+      eb.worksheet.insertRow(eb.row + dir, eb.yank.y);
+      eb.row = eb.row + dir;
+      reportCell();
+    } else if (eb.yank && eb.yank.type === "cells") {
+    } else {
+      console.log("nothing to paste in buffer.");
+    }
+  }
+  const pasteBefore = {
+    help: "paste buffer above or before row or cell.",
+    f: () => {
+      paste(0);
+    },
+  };
+  const pasteAfter = {
+    help: "paste buffer below or after row or cell.",
+    f: () => {
+      paste(1);
+    },
+  };
   const insertRowBelow = {
     help: "insert blank row below current",
     f: () => {
@@ -151,8 +190,12 @@ async function run() {
         rl.write(cellcontent);
       },
     },
-    o: insertRowBelow,
     O: insertRowAbove,
+    o: insertRowBelow,
+    D: deleteRow,
+    Y: yankRow,
+    P: pasteBefore,
+    p: pasteAfter,
     ns: {
       help: "new sheet",
       f: () => {
