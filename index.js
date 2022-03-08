@@ -70,9 +70,11 @@ async function run() {
     let clearSequenceTimeout;
     clearTimeout(clearSequenceTimeout);
     clearSequenceTimeout = setTimeout(function () {
+      // did the user enter a known key sequence?
+      if (cmds[keySequence]) cmds[keySequence].f();
+      // clear out anything unknown
       keySequence = "";
     }, 500);
-    if (cmds[keySequence]) cmds[keySequence].f();
   }
 
   const help = {
