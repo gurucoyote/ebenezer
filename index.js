@@ -8,7 +8,6 @@ const FormulaParser = require("hot-formula-parser").Parser;
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
-  historySize: 0, // so arrow up/down don't enter text ^^
 });
 rl.input.setEncoding("utf-8");
 rl.input.setRawMode(true);
@@ -166,10 +165,10 @@ async function run() {
       f: () => {
         switchInsertMode();
         const cell = eb.worksheet.getRow(eb.row).getCell(eb.col);
-        rl.history = uniqueColumnValues(eb.col);
         let cellcontent;
         if (cell.formula) cellcontent = "=" + cell.formula;
         else cellcontent = cell.value;
+        rl.history = uniqueColumnValues(eb.col);
         rl.question(
           "cell value> ",
           { signal: eb.abortSignal },
@@ -221,6 +220,11 @@ async function run() {
       f: () => {
         // select a worksheet
         switchInsertMode();
+        // prepare history to select from
+        rl.history = [];
+        eb.workbook.worksheets.map((ws) => {
+          rl.history.push(ws.name);
+        });
         rl.question("ws>", { signal: eb.abortSignal }, async function (answer) {
           try {
             const ws = eb.workbook.getWorksheet(answer);
@@ -234,9 +238,6 @@ async function run() {
             console.error(e);
           }
           switchNormalMode();
-        });
-        eb.workbook.worksheets.map((ws) => {
-          rl.history.push(ws.name);
         });
         rl.write("", {
           sequence: "\x1B[A",
@@ -252,11 +253,13 @@ async function run() {
       help: "write the workbook to disk, asks for filename",
       f: () => {
         switchInsertMode();
-        console.log(
-          "enter new filename, or use up/down arrow to choose previous"
-        );
+        // console.log(
+        //   "enter new filename, or use up/down arrow to choose previous"
+        // );
+        rl.history = [];
+        rl.history = [...eb.filenames];
         rl.question(
-          "filename> ",
+          "filename>",
           { signal: eb.abortSignal },
           async function (fn) {
             if (await save(eb, fn)) {
@@ -265,7 +268,6 @@ async function run() {
             switchNormalMode();
           }
         );
-        rl.history = eb.filenames;
         // write arrow up to enter history
         rl.write("", {
           sequence: "\x1B[A",
