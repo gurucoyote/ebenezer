@@ -105,8 +105,7 @@ async function run() {
     help: "delete current row, shifting below rows up",
     f: () => {
       console.log(`removing row ${eb.row}`);
-      eb.yank = { type: "row", y: eb.worksheet.getRow(eb.row).values };
-      // console.log(eb.yank);
+      eb.yank = { type: "rows", y: [eb.worksheet.getRow(eb.row).values] };
       eb.worksheet.spliceRows(eb.row, 1);
       reportCell();
     },
@@ -115,12 +114,12 @@ async function run() {
     help: "yank the current row into paste buffer",
     f: () => {
       console.log(`yanking row ${eb.row}`);
-      eb.yank = { type: "row", y: eb.worksheet.getRow(eb.row).values };
+      eb.yank = { type: "rows", y: [eb.worksheet.getRow(eb.row).values] };
     },
   };
   function paste(dir) {
-    if (eb.yank && eb.yank.type === "row") {
-      eb.worksheet.insertRow(eb.row + dir, eb.yank.y);
+    if (eb.yank && eb.yank.type === "rows") {
+      eb.worksheet.insertRows(eb.row + dir, eb.yank.y);
       eb.row = eb.row + dir;
       reportCell();
     } else if (eb.yank && eb.yank.type === "cells") {
