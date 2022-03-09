@@ -102,11 +102,27 @@ async function run() {
       reportCell();
     },
   };
+  const cutCell = {
+    help: "cut current cell to paste buffer",
+    f: () => {
+      yankCell.f();
+      eb.worksheet.getRow(eb.row).getCell(eb.col).value = "";
+    },
+  };
+  const yankCell = {
+    help: "yank the current cell into paste buffer",
+    f: () => {
+      eb.yank = {
+        type: "cells",
+        y: eb.worksheet.getRow(eb.row).getCell(eb.col).value,
+      };
+    },
+  };
   const deleteRow = {
     help: "delete current row, shifting below rows up",
     f: () => {
       console.log(`removing row ${eb.row}`);
-      eb.yank = { type: "rows", y: [eb.worksheet.getRow(eb.row).values] };
+      eb.yank = { type: "row", y: [eb.worksheet.getRow(eb.row).values] };
       eb.worksheet.spliceRows(eb.row, 1);
       reportCell();
     },
@@ -115,15 +131,50 @@ async function run() {
     help: "yank the current row into paste buffer",
     f: () => {
       console.log(`yanking row ${eb.row}`);
-      eb.yank = { type: "rows", y: [eb.worksheet.getRow(eb.row).values] };
+      eb.yank = { type: "row", y: [eb.worksheet.getRow(eb.row).values] };
+    },
+  };
+  const yankCol = {
+    help: "yank current column into paste buffer",
+    f: () => {
+      eb.yank = {
+        type: "col",
+        // splice(1) returns all elements except first
+        // apparently, inserting values into columns does not need the empty first element that values returns ^^
+        y: eb.worksheet.getColumn(eb.col).values.splice(1),
+      };
+    },
+  };
+  const deleteCol = {
+    help: "delete current column and shift remaining columns left.",
+    f: () => {
+      yankCol.f();
+      eb.worksheet.spliceColumns(eb.col, 1);
+    },
+  };
+  const cutCol = {
+    help: "cut current column into paste buffer.",
+    f: () => {
+      yankCol.f();
+      eb.worksheet.getColumn(eb.col).eachCell((cell, _) => {
+        cell.value = null;
+      });
     },
   };
   function paste(dir) {
-    if (eb.yank && eb.yank.type === "rows") {
+    if (eb.yank && eb.yank.type === "row") {
       eb.worksheet.insertRows(eb.row + dir, eb.yank.y);
       eb.row = eb.row + dir;
       reportCell();
-    } else if (eb.yank && eb.yank.type === "cells") {
+    } else if (eb.yank && eb.yank.type === "cell") {
+      eb.worksheet.getRow(eb.row).getCell(eb.col).value = eb.yank.y;
+      console.log("pasted:");
+      reportCell();
+    } else if (eb.yank && eb.yank.type === "col") {
+      eb.worksheet.spliceColumns(eb.col + dir, 0, eb.yank.y);
+      console.log("pasted column");
+      eb.col = eb.col + dir;
+      reportCell();
     } else {
       console.log("nothing to paste in buffer.");
     }
@@ -190,10 +241,17 @@ async function run() {
         rl.write(cellcontent);
       },
     },
+    y: yankCell,
+    x: cutCell,
     O: insertRowAbove,
     o: insertRowBelow,
     D: deleteRow,
+    dd: deleteRow,
     Y: yankRow,
+    yy: yankRow,
+    yc: yankCol,
+    dc: deleteCol,
+    xc: cutCol,
     P: pasteBefore,
     p: pasteAfter,
     ns: {
