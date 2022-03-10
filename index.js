@@ -4,6 +4,8 @@ const readline = require("readline");
 const repl = require("repl");
 const Excel = require("exceljs");
 const FormulaParser = require("hot-formula-parser").Parser;
+// how long to wait for completion of key sequences
+const keyWait = 250;
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -74,7 +76,7 @@ async function run() {
       if (cmds[keySequence]) cmds[keySequence].f();
       // clear out anything unknown
       keySequence = "";
-    }, 500);
+    }, keyWait);
   }
 
   const help = {
@@ -106,25 +108,16 @@ async function run() {
     help: "cut current cell to paste buffer",
     f: () => {
       yankCell.f();
-      eb.worksheet.getRow(eb.row).getCell(eb.col).value = "";
+      eb.worksheet.getRow(eb.row).getCell(eb.col).value = null;
     },
   };
   const yankCell = {
     help: "yank the current cell into paste buffer",
     f: () => {
       eb.yank = {
-        type: "cells",
+        type: "cell",
         y: eb.worksheet.getRow(eb.row).getCell(eb.col).value,
       };
-    },
-  };
-  const deleteRow = {
-    help: "delete current row, shifting below rows up",
-    f: () => {
-      console.log(`removing row ${eb.row}`);
-      eb.yank = { type: "row", y: [eb.worksheet.getRow(eb.row).values] };
-      eb.worksheet.spliceRows(eb.row, 1);
-      reportCell();
     },
   };
   const yankRow = {
@@ -132,6 +125,26 @@ async function run() {
     f: () => {
       console.log(`yanking row ${eb.row}`);
       eb.yank = { type: "row", y: [eb.worksheet.getRow(eb.row).values] };
+    },
+  };
+  const cutRow = {
+    help: "cut the current row into paste buffer, leaving a blank row.",
+    f: () => {
+      yankRow.f();
+      console.log(`blanking row ${eb.row}`);
+      eb.worksheet.getRow(eb.row).eachCell((c) => {
+        c.value = null;
+      });
+      reportCell();
+    },
+  };
+  const deleteRow = {
+    help: "delete current row, shifting below rows up",
+    f: () => {
+      yankRow.f();
+      console.log(`removing row ${eb.row}`);
+      eb.worksheet.spliceRows(eb.row, 1);
+      reportCell();
     },
   };
   const yankCol = {
@@ -245,10 +258,12 @@ async function run() {
     x: cutCell,
     O: insertRowAbove,
     o: insertRowBelow,
-    D: deleteRow,
-    dd: deleteRow,
     Y: yankRow,
     yy: yankRow,
+    X: cutRow,
+    xx: cutRow,
+    D: deleteRow,
+    dd: deleteRow,
     yc: yankCol,
     dc: deleteCol,
     xc: cutCol,
