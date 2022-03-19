@@ -97,6 +97,12 @@ async function run() {
       });
     },
   };
+  const readheader = {
+    help: "read the column header",
+    f: () => {
+      reportCell(eb.worksheet.getRow(1).getCell(eb.col));
+    },
+  };
   const down = {
     help: "move one cell down",
     f: () => {
@@ -397,6 +403,7 @@ async function run() {
         });
       },
     },
+    ct: readheader,
     enter: down,
     return: down,
     down: down,
