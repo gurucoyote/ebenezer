@@ -225,6 +225,47 @@ async function run() {
       reportCell();
     },
   };
+  const findIncol = {
+    help: "find string in current column, returns list of matching cells to select from",
+    f: () => {
+      switchInsertMode();
+      // ask for search string
+      rl.question(
+        "search>",
+        { signal: eb.abortSignal },
+        async function (search) {
+          // prepare history to select from
+          rl.history = [];
+          // find matching cells
+          const column = eb.worksheet.getColumn(eb.col);
+          const colLetter = n2l(eb.col);
+          const re = new RegExp(search, "i");
+          column.eachCell((c, idx) => {
+            if (c.value && c.value.match(re)) {
+              rl.history.push(colLetter + idx + " : " + c.value);
+            }
+          });
+          rl.question(
+            "goto>",
+            { signal: eb.abortSignal },
+            async function (answer) {
+              // goto selected cell
+              console.log("going to " + answer);
+              goto(answer);
+            }
+          );
+          rl.write("", {
+            sequence: "\x1B[A",
+            name: "up",
+            ctrl: false,
+            meta: false,
+            shift: false,
+            code: "[A",
+          });
+        }
+      );
+    },
+  };
   let cmds = {
     q: {
       help: "quit the program, no questions asked",
@@ -296,6 +337,7 @@ async function run() {
         );
       },
     },
+    fi: findIncol,
     ps: {
       help: "pick sheet",
       f: () => {
@@ -366,20 +408,7 @@ async function run() {
         // goto cell
         let currCell = eb.worksheet.getRow(eb.row).getCell(eb.col);
         switchInsertMode();
-        rl.question("goto> ", { signal: eb.abortSignal }, function (gt) {
-          try {
-            const [_, col, row] = gt.match(/([a-z]+)(\d+)/i);
-            eb.row = parseInt(row);
-            eb.col = convertLetterToNumber(col);
-            currCell = eb.worksheet.getRow(eb.row).getCell(eb.col);
-          } catch (e) {
-            console.warn(`${gt} is not a valid cell address`);
-            // console.log(e);
-          } finally {
-            reportCell(currCell);
-            switchNormalMode();
-          }
-        });
+        rl.question("goto> ", { signal: eb.abortSignal }, goto);
         rl.write(currCell.address);
       },
     },
@@ -446,6 +475,20 @@ async function run() {
     });
     // console.debug(uv);
     return [...uv];
+  }
+  function goto(gt) {
+    try {
+      const [_, col, row] = gt.match(/([a-z]+)(\d+)/i);
+      eb.row = parseInt(row);
+      eb.col = l2n(col);
+      currCell = eb.worksheet.getRow(eb.row).getCell(eb.col);
+    } catch (e) {
+      console.warn(`${gt} is not a valid cell address`);
+      // console.log(e);
+    } finally {
+      reportCell(currCell);
+      switchNormalMode();
+    }
   }
   function reportCell(cell) {
     if (!cell) {
@@ -547,7 +590,18 @@ async function save(eb, filename) {
     return false;
   }
 }
-function convertLetterToNumber(str) {
+function n2l(num) {
+  let s = "",
+    t;
+  while (num > 0) {
+    t = (num - 1) % 26;
+    s = String.fromCharCode(65 + t) + s;
+    num = ((num - t) / 26) | 0;
+  }
+  return s || undefined;
+}
+
+function l2n(str) {
   str = str.toUpperCase();
   let out = 0,
     len = str.length;
