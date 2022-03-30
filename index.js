@@ -97,10 +97,16 @@ async function run() {
       });
     },
   };
-  const readheader = {
-    help: "read the column header",
+  const readColumnTitle = {
+    help: "read the column title/header",
     f: () => {
       reportCell(eb.worksheet.getRow(1).getCell(eb.col));
+    },
+  };
+  const readRowTitle = {
+    help: "read the row title (first cell in row)",
+    f: () => {
+      reportCell(eb.worksheet.getRow(eb.row).getCell(1));
     },
   };
   const down = {
@@ -432,7 +438,8 @@ async function run() {
         });
       },
     },
-    ct: readheader,
+    ct: readColumnTitle,
+    rt: readRowTitle,
     enter: down,
     return: down,
     down: down,
