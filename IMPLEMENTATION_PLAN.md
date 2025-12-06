@@ -29,9 +29,9 @@ This plan translates the high-level requirements captured in `SPEC.md` into scop
 2. [x] Provide a repeatable build entry point (`build.sh`); Makefile optional.
 3. [x] Set up local `go test ./...` workflow (CI optional in this phase).
 4. [x] Establish `internal/app`, `internal/ui`, `internal/workbook` package skeletons with docstrings referencing SPEC sections. *(Status: skeletons exist, docstrings TODO.)*
-5. [ ] Add basic unit test harness (table-driven tests) to cover cursor math and workbook helpers.
+5. [x] Add basic unit test harness (table-driven tests) covering cursor math (`internal/app/state_test.go`) and workbook helpers (`internal/workbook/workbook_test.go`).
 
-**Acceptance**: _In progress_ — binary builds via `build.sh` and `go test ./...` runs; initial targeted unit tests still pending.
+**Acceptance**: ✅ Binary builds via `build.sh`, smoke tests executed with `go test ./...`, and unit tests exist for foundational packages.
 
 ### Milestone 1 – Core CLI & Editing Loop (Weeks 2–4)
 Deliverable: Minimum usable CLI covering §3.1–3.4, §8 basics.
