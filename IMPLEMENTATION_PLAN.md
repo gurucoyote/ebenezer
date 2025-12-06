@@ -25,37 +25,35 @@ This plan translates the high-level requirements captured in `SPEC.md` into scop
 
 ### Milestone 0 – Project Bootstrap (Week 1)
 **Goals**: Scaffolding, tooling, and automation baseline.
-1. Initialize Go module (`go.mod`) with cobra/viper/excelize dependencies.
-2. Create `Makefile` targets: `build`, `lint`, `test`, `fmt`.
-3. Set up CI workflow (GitHub Actions placeholder) running `make lint test`.
-4. Establish `internal/app`, `internal/ui`, `internal/workbook` package skeletons with docstrings referencing SPEC sections.
-5. Add basic unit test harness (Go test + table-driven pattern).
+1. [x] Initialize Go module (`go.mod`) with cobra/viper/excelize dependencies (current scope: cobra, keyboard, readline).
+2. [x] Provide a repeatable build entry point (`build.sh`); Makefile optional.
+3. [x] Set up local `go test ./...` workflow (CI optional in this phase).
+4. [x] Establish `internal/app`, `internal/ui`, `internal/workbook` package skeletons with docstrings referencing SPEC sections. *(Status: skeletons exist, docstrings TODO.)*
+5. [ ] Add basic unit test harness (table-driven tests) to cover cursor math and workbook helpers.
 
-**Acceptance**: `make build` produces no-op CLI that prints version flag; CI green.
+**Acceptance**: _In progress_ — binary builds via `build.sh` and `go test ./...` runs; initial targeted unit tests still pending.
 
 ### Milestone 1 – Core CLI & Editing Loop (Weeks 2–4)
 Deliverable: Minimum usable CLI covering §3.1–3.4, §8 basics.
 
 Tasks:
-1. **App State & Lifecycle** (`internal/app/state.go`): implement `AppState`, initialization from CLI flags, untitled workbook creation, filename history in-memory.
-2. **Workbook I/O** (`internal/workbook/io.go`): wrap excelize for load/save, format detection, CSV delimiter override.
-3. **Terminal Raw Mode** (`internal/ui/terminal.go`): handle Normal/Insert modes, key buffering respecting `keyWait`.
-4. **Command Registry** (`internal/commands/registry.go`): define `Action` interface (§5) and map sequences → handlers with help metadata.
-5. **Navigation Commands** (`internal/commands/navigation.go`): `down/up/left/right`, `g`, `ct`, `rt`.
-6. **Editing Commands** (`internal/commands/edit.go`): `i`, `y/x`, `yy/xx`, `dd`, `yc/xc/dc`, row insertion/paste operations.
-7. **Style Snapshot Helpers** (`internal/workbook/styles.go`): capture/reapply `excelize.StyleID` data during clipboard operations so duplicated rows/columns inherit fonts/fills/borders.
-8. **Status Reporting** (`internal/ui/status.go`): present cell display/formula, handle ESC cancel.
+1. [x] **App State & Lifecycle** (`internal/app/state.go`): implement state + sample workbook loader. *(Filename history still future work.)*
+2. [~] **Workbook I/O** (`internal/workbook/io.go`): partial — CSV loader + sample workbook done; excelize integration + delimiter overrides pending.
+3. [ ] **Terminal Raw Mode** (`internal/ui/terminal.go`): not started (current demo uses lifted keyboard loop only).
+4. [ ] **Command Registry** (`internal/commands/registry.go`): TBD — current commands directly call state.
+5. [~] **Navigation Commands**: arrow key handlers exist via `move` command; `g`, `ct`, `rt` pending.
+6. [ ] **Editing Commands**: not started.
+7. [ ] **Style Snapshot Helpers**: not started.
+8. [x] **Status Reporting** (`internal/ui/status.go`): prints cursor/value after commands.
 
 Testing:
-- Unit tests for index clamping, clipboard operations, row/column insert/delete.
-- Golden tests for simple CSV load/save round-trip.
-- XLSX regression test verifying row duplication preserves style hashes (fonts, fills, borders).
-- PTY-based smoke test ensuring modal transitions (Normal→Insert→Normal).
+- [ ] Unit tests (cursor math, clipboard, etc.).
+- [ ] CSV/XLSX golden tests.
+- [ ] PTY smoke tests.
 
-Exit Criteria:
-- Able to open sample CSV, edit cells, yank/paste, and save.
-- Editing an XLSX fixture with mixed formatting does not change style XML except where cells are added.
-- Help output enumerates implemented commands with `h`/`?`.
+Exit Criteria (current status):
+- Sample CSV load + navigation works via `open`/keyboard ✅.
+- Editing/styling guarantees ❌ (future).
 
 ### Milestone 2 – Search, History, and Formula Evaluation (Weeks 5–6)
 Scope: §3.5–3.7, §7 (history), §8 enhancements.
