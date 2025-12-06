@@ -1,7 +1,7 @@
 # Ebenezer Go CLI & MCP Server Spec
 
 ## 1. Vision & Scope
-- **Goal**: Rebuild Ebenezer as a fast, portable Go CLI that edits `.xlsx`/`.csv` workbooks in a headless yet interactive way, preserving the Vim-style workflow from the Node prototype while improving ergonomics, installability, and reliability.
+- **Goal**: Rebuild Ebenezer as a fast, portable Go CLI that edits `.xlsx`/`.csv` workbooks in a headless yet interactive way, preserving the Vim-style workflow from the Node prototype while improving ergonomics, installability, reliability, and fidelity to existing spreadsheet formatting and styling.
 - **Secondary Goal**: Provide a machine-consumable interface (MCP server) that exposes spreadsheet editing primitives to CLI coding agents (Codex and others) without relying on terminal key bindings.
 - **Out of Scope v1**: Full Excel feature parity, graphical UI, concurrent multi-user editing, online storage integrations.
 
@@ -13,6 +13,7 @@ Key workflows:
 - Open an existing workbook or create a new one when no filename is provided.
 - Navigate with modal key bindings, inspect formula results, and edit cell contents quickly.
 - Manipulate rows/columns (insert, delete, yank/cut/paste) and switch between sheets.
+- Duplicate or expand styled regions while retaining fonts, fills, borders, and number formats.
 - Save to new filenames, preserving prior filenames as history suggestions.
 - Search within a column and jump to matches.
 - Run ad-hoc scripts inside an embedded REPL (optional stretch goal for parity with Node version).
@@ -53,7 +54,14 @@ Key workflows:
 - Support evaluation of Excel-compatible formulas (SUM, AVERAGE, references, ranges) within a single sheet; circular references yield warning and raw formula.
 - Provide fallback when a formula cannot be evaluated (log error, display `#ERR`).
 
-### 3.6 Column Search & History
+### 3.6 Formatting & Styling Integrity
+- All CLI operations must preserve existing cell formatting (fonts, fills, borders, number formats, conditional formatting, merged cells) unless a future feature explicitly edits style metadata.
+- Editing commands (`i`, paste, formula updates) must only change cell content/formula, leaving style IDs untouched.
+- Structural commands (`O`, `o`, `P`, `p`, `yy`, `xx`, `yc`, `xc`, `dc`, etc.) copy both values and associated style information so that newly created rows/columns inherit the source styling.
+- Introduce helpers in `internal/workbook/styles.go` to snapshot a range's `excelize.StyleID` values and reapply them when duplicating/cutting/pasting.
+- Add regression tests comparing pre/post style XML hashes when editing representative files (fonts, fills, conditional formats).
+
+### 3.7 Column Search & History
 - Maintain last-search string and revisit via `fi` prompt history.
 - Provide user-friendly navigation: after populating results, the user selects via arrow keys or enters a coordinate.
 
@@ -63,7 +71,7 @@ Key workflows:
 - **Portability**: builds for macOS, Linux, Windows without CGO.
 - **Binary size**: target < 25MB.
 - **Performance**: open 50k-row CSV under 3s on modern hardware.
-- **Reliability**: ensure yank/cut/paste operations fail fast if workbook is in read-only state.
+- **Reliability**: ensure yank/cut/paste operations fail fast if workbook is in read-only state and confirm structural edits do not corrupt style metadata (style hash comparison in tests).
 - **Accessibility**: all feedback via stdout/stderr; avoid reliance on color.
 
 ## 5. Architecture Overview
@@ -72,6 +80,7 @@ CLI orchestration (Cobra) and configuration (Viper) should be layered so that th
 cmd/ebenezer/main.go        // CLI entrypoint, flag parsing
 internal/app/state.go       // AppState struct, lifecycle hooks
 internal/workbook/io.go     // Load/save logic using Excelize & encoding/csv
+internal/workbook/styles.go // Style snapshot/reapply helpers for formatting integrity
 internal/formula/engine.go  // Formula evaluation abstraction
 internal/ui/terminal.go     // Terminal raw-mode, key buffer, prompts
 internal/commands/*.go      // Individual command handlers registered in map
