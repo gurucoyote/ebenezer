@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
+	"unicode"
 
 	"ebenezer/internal/ui/keyboard"
 	"ebenezer/internal/ui/status"
@@ -52,6 +55,7 @@ func startKeyboardLoop(c *cobra.Command) error {
 					status.Print(c.OutOrStdout(), appState)
 					return nil
 				},
+				'g': gotoShortcut(c),
 			},
 		},
 	}
@@ -69,5 +73,59 @@ func startKeyboardLoop(c *cobra.Command) error {
 func moveAction(direction string) keyboard.Action {
 	return func(ctx *keyboard.Context) error {
 		return ctx.Executor.ExecuteCommand([]string{"move", direction})
+	}
+}
+
+var errPromptCanceled = errors.New("prompt cancelled")
+
+func gotoShortcut(c *cobra.Command) keyboard.Action {
+	return func(ctx *keyboard.Context) error {
+		addr, err := promptForAddress(c)
+		if err != nil {
+			if errors.Is(err, errPromptCanceled) {
+				return nil
+			}
+			return err
+		}
+		if addr == "" {
+			return nil
+		}
+		return ctx.Executor.ExecuteCommand([]string{"goto", addr})
+	}
+}
+
+func promptForAddress(c *cobra.Command) (string, error) {
+	out := c.OutOrStdout()
+	current := appState.Address()
+	fmt.Fprintf(out, "\nGoto cell (ESC to cancel) [%s]: ", current)
+	buffer := []rune(current)
+	fmt.Fprint(out, current)
+	for {
+		char, key, err := githubkeyboard.GetKey()
+		if err != nil {
+			return "", err
+		}
+		switch key {
+		case githubkeyboard.KeyEsc:
+			fmt.Fprintln(out)
+			return "", errPromptCanceled
+		case githubkeyboard.KeyEnter:
+			fmt.Fprintln(out)
+			return strings.TrimSpace(strings.ToUpper(string(buffer))), nil
+		case githubkeyboard.KeyBackspace, githubkeyboard.KeyBackspace2:
+			if len(buffer) > 0 {
+				buffer = buffer[:len(buffer)-1]
+				fmt.Fprint(out, "\b \b")
+			}
+		default:
+			if unicode.IsLetter(char) {
+				char = unicode.ToUpper(char)
+				buffer = append(buffer, char)
+				fmt.Fprint(out, string(char))
+			} else if unicode.IsDigit(char) {
+				buffer = append(buffer, char)
+				fmt.Fprint(out, string(char))
+			}
+		}
 	}
 }

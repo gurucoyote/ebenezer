@@ -38,7 +38,7 @@ Deliverable: Minimum usable CLI covering §3.1–3.4, §8 basics.
 
 Tasks:
 1. [x] **App State & Lifecycle** (`internal/app/state.go`): implement state + sample workbook loader. *(Filename history still future work.)*
-2. [~] **Workbook I/O** (`internal/workbook/io.go`): partial — CSV loader + sample workbook done; excelize integration + delimiter overrides pending.
+2. [~] **Workbook I/O** (`internal/workbook/io.go`): CSV + Excelize-based `.xlsx` loading done; saving, delimiter overrides, and style snapshots still pending.
 3. [ ] **Terminal Raw Mode** (`internal/ui/terminal.go`): not started (current demo uses lifted keyboard loop only).
 4. [ ] **Command Registry** (`internal/commands/registry.go`): TBD — current commands directly call state.
 5. [~] **Navigation Commands**: arrow key handlers exist via `move` command; `g`, `ct`, `rt` pending.

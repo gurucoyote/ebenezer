@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 // Workbook is a minimal in-memory representation for demo purposes.
 type Workbook struct {
 	Cells [][]string
 	Name  string
+	Sheet string
 }
 
 // SampleWorkbook seeds demo data without hitting the filesystem.
@@ -22,7 +25,22 @@ func SampleWorkbook() *Workbook {
 		{"Ink", "1", "$42"},
 		{"Total", "8", "$64"},
 	}
-	return &Workbook{Cells: cells, Name: "sample"}
+	return &Workbook{Cells: cells, Name: "sample", Sheet: "Sheet1"}
+}
+
+// FromFile loads either CSV or XLSX data into a Workbook.
+func FromFile(path, sheet string) (*Workbook, error) {
+	if path == "" {
+		return nil, fmt.Errorf("path is required")
+	}
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".csv":
+		return FromCSV(path)
+	case ".xlsx":
+		return FromXLSX(path, sheet)
+	default:
+		return nil, fmt.Errorf("unsupported extension %s", filepath.Ext(path))
+	}
 }
 
 // FromCSV loads a CSV file into a Workbook; it uses comma delimiter for now.
@@ -45,7 +63,7 @@ func FromCSV(path string) (*Workbook, error) {
 		}
 		rows = append(rows, record)
 	}
-	return &Workbook{Cells: rows, Name: path}, nil
+	return &Workbook{Cells: rows, Name: path, Sheet: "Sheet1"}, nil
 }
 
 // Cell returns the value at 1-based row/col, empty string if out of bounds.

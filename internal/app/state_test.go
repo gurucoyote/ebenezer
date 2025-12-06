@@ -39,6 +39,29 @@ func TestAddressAndValue(t *testing.T) {
 	}
 }
 
+func TestGotoAndHeaders(t *testing.T) {
+	st := NewState()
+	if err := st.Goto("B2"); err != nil {
+		t.Fatalf("goto failed: %v", err)
+	}
+	if got, want := st.Address(), "B2"; got != want {
+		t.Fatalf("expected address %s, got %s", want, got)
+	}
+	if got, want := st.ColumnHeader(), "Qty"; got != want {
+		t.Fatalf("expected column header %s, got %s", want, got)
+	}
+	if got, want := st.RowHeader(), "Foam"; got != want {
+		t.Fatalf("expected row header %s, got %s", want, got)
+	}
+}
+
+func TestGotoInvalid(t *testing.T) {
+	st := NewState()
+	if err := st.Goto("ZZZ"); err == nil {
+		t.Fatalf("expected error for missing row digits")
+	}
+}
+
 func TestColumnName(t *testing.T) {
 	cases := map[int]string{
 		1:   "A",

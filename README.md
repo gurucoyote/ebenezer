@@ -7,8 +7,8 @@ Ebenezer is a headless-yet-interactive spreadsheet editor with a Vim-inspired wo
 ## Status: Early Demo
 - CLI scaffold available via Cobra (`cmd/ebenezer`).
 - Keyboard input loop lifted from the Gordon project (`internal/ui/keyboard`).
-- Demo-friendly workbook layer with in-memory sample data plus CSV loading (`internal/workbook`).
-- Keyboard demo supports arrow-key navigation, `s` to print cell status, `:` to enter command mode, and `q` to exit.
+- Workbook layer backed by in-memory sample data, CSV loading, and `.xlsx` parsing via Excelize (`internal/workbook`).
+- Keyboard demo supports arrow-key navigation, `g` to jump to a cell, `s` to print status, `:` to enter command mode, and `q` to exit.
 
 ## Build & Run
 ```bash
@@ -18,8 +18,9 @@ Ebenezer is a headless-yet-interactive spreadsheet editor with a Vim-inspired wo
 
 While in keyboard mode:
 - Arrow keys move the cursor; output shows `→ <address> = "<value>"`.
+- `g` prompts for a cell address (e.g., `B12`) and jumps there.
 - `s` prints the current cell via the status helper.
-- `:` enters command mode—run commands like `status`, `open js/test.csv`, `sample`.
+- `:` enters command mode—run commands like `status`, `open js/test.xlsx --sheet Sheet1`, `colheader`, `rowheader`, `sample`.
 - `q` exits keyboard mode.
 
 ## Roadmap Highlights

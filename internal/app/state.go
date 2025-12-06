@@ -1,7 +1,11 @@
 package app
 
 import (
+	"errors"
 	"fmt"
+	"strconv"
+	"strings"
+	"unicode"
 
 	"ebenezer/internal/workbook"
 )
@@ -68,6 +72,51 @@ func (s *State) CurrentValue() string {
 	return s.Workbook.Cell(s.Cursor.Row, s.Cursor.Col)
 }
 
+// ColumnHeader returns row 1 of the current column.
+func (s *State) ColumnHeader() string {
+	if s.Workbook == nil {
+		return ""
+	}
+	return s.Workbook.Cell(1, s.Cursor.Col)
+}
+
+// RowHeader returns column 1 of the current row.
+func (s *State) RowHeader() string {
+	if s.Workbook == nil {
+		return ""
+	}
+	return s.Workbook.Cell(s.Cursor.Row, 1)
+}
+
+// Goto moves the cursor to the provided address (e.g., B12).
+func (s *State) Goto(address string) error {
+	if s.Workbook == nil {
+		return errors.New("no workbook loaded")
+	}
+	row, col, err := parseAddress(address)
+	if err != nil {
+		return err
+	}
+	maxRow, maxCol := s.Workbook.MaxCoords()
+	if maxRow == 0 || maxCol == 0 {
+		return errors.New("workbook is empty")
+	}
+	if row < 1 {
+		row = 1
+	}
+	if col < 1 {
+		col = 1
+	}
+	if row > maxRow {
+		row = maxRow
+	}
+	if col > maxCol {
+		col = maxCol
+	}
+	s.Cursor = Cursor{Row: row, Col: col}
+	return nil
+}
+
 // Address returns Excel-like cell reference (e.g., A1).
 func (s *State) Address() string {
 	return fmt.Sprintf("%s%d", columnName(s.Cursor.Col), s.Cursor.Row)
@@ -84,4 +133,40 @@ func columnName(col int) string {
 		col /= 26
 	}
 	return name
+}
+
+func parseAddress(address string) (int, int, error) {
+	addr := strings.TrimSpace(address)
+	if addr == "" {
+		return 0, 0, errors.New("address required")
+	}
+	addr = strings.ToUpper(addr)
+	var letters, digits strings.Builder
+	for _, r := range addr {
+		switch {
+		case unicode.IsLetter(r):
+			letters.WriteRune(r)
+		case unicode.IsDigit(r):
+			digits.WriteRune(r)
+		default:
+			return 0, 0, fmt.Errorf("invalid character %q in address", r)
+		}
+	}
+	if letters.Len() == 0 || digits.Len() == 0 {
+		return 0, 0, errors.New("address must include column letters and row digits")
+	}
+	col := lettersToNumber(letters.String())
+	row, err := strconv.Atoi(digits.String())
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid row digits: %w", err)
+	}
+	return row, col, nil
+}
+
+func lettersToNumber(s string) int {
+	result := 0
+	for _, r := range s {
+		result = result*26 + int(r-'A'+1)
+	}
+	return result
 }
