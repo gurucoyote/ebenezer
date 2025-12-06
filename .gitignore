@@ -1,3 +1,4 @@
 exceljs/
 formulajs/
 node_modules/
+.cache/

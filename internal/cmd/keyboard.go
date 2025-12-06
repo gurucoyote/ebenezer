@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"ebenezer/internal/ui/keyboard"
+	"ebenezer/internal/ui/status"
 	githubkeyboard "github.com/eiannone/keyboard"
 	"github.com/spf13/cobra"
 )
@@ -45,6 +46,10 @@ func startKeyboardLoop(c *cobra.Command) error {
 			Runes: map[rune]keyboard.Action{
 				'i': func(ctx *keyboard.Context) error {
 					fmt.Fprintln(c.OutOrStdout(), "entering insert mode placeholder")
+					return nil
+				},
+				's': func(ctx *keyboard.Context) error {
+					status.Print(c.OutOrStdout(), appState)
 					return nil
 				},
 			},
