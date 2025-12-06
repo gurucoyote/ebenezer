@@ -60,6 +60,8 @@ Key workflows:
 - Structural commands (`O`, `o`, `P`, `p`, `yy`, `xx`, `yc`, `xc`, `dc`, etc.) copy both values and associated style information so that newly created rows/columns inherit the source styling.
 - Introduce helpers in `internal/workbook/styles.go` to snapshot a range's `excelize.StyleID` values and reapply them when duplicating/cutting/pasting.
 - Add regression tests comparing pre/post style XML hashes when editing representative files (fonts, fills, conditional formats).
+- Provide read-only inspection tools to analyze styling, so users can understand visual coding conventions (e.g., red backgrounds for TODOs, italics for comments). Expose commands such as `style describe <range>` or `style search --fill=red` that surface font, fill, border, conditional format metadata without modifying the workbook.
+- Style descriptions must default to human-readable color/format labels (e.g., “red fill,” “light green background,” “italic font”), while still offering raw RGB/ARGB codes as optional detail for scripting use.
 
 ### 3.7 Column Search & History
 - Maintain last-search string and revisit via `fi` prompt history.
