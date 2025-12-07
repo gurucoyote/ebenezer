@@ -15,3 +15,10 @@ func TestCellStyleDescribe(t *testing.T) {
 		t.Fatalf("expected color names, got %q", desc)
 	}
 }
+
+func TestFuzzyColorName(t *testing.T) {
+	name := fuzzyColorName("F08080")
+	if name == "" {
+		t.Fatalf("expected fuzzy color name")
+	}
+}
