@@ -36,16 +36,7 @@ Key workflows:
 - `g` enters insert prompt pre-filled with current cell address; accepts e.g. `B12`.
 - `ct`/`rt` read header cell (row 1, current column) or first column of current row.
 
-### 3.4 Edit Commands
-- `i`: edit current cell; if input begins with `=`, treat as formula, otherwise literal string/number.
-- `y`/`x`: yank/cut cell value into clipboard.
-- `Y|yy`/`X|xx`: yank/cut row; `D|dd`: delete row (shift up).
-- `yc`/`xc`/`dc`: column yank/cut/delete.
-- `O`/`o`: insert blank row above/below; insertion updates cursor to the new row.
-- `P`/`p`: paste clipboard before/after current row/column/location, based on clipboard type (cell/row/column).
-- `ns`: prompt for new sheet name, validate uniqueness, create sheet, and switch focus.
-- `ps`: prompt with sheet list, switch when valid choice made.
-- `fi`: column search: prompt for regex/text, list matches, allow arrow navigation and jump.
+- `ps`: prompt with sheet list, switch when valid choice made, and allow `ps <name>` for non-interactive environments. Sheet list should be sourced from the current workbook and highlight the active sheet.
 - `wb`: save workbook; prompt with filename history, support `.xlsx` and `.csv` (sheet-scoped writer).
 - `:` (stretch goal) open Go REPL or Lua-like scripting environment (optional for parity).
 
@@ -62,6 +53,7 @@ Key workflows:
 - Add regression tests comparing pre/post style XML hashes when editing representative files (fonts, fills, conditional formats).
 - Provide read-only inspection tools to analyze styling, so users can understand visual coding conventions (e.g., red backgrounds for TODOs, italics for comments). Expose commands such as `style describe <range>` or `style search --fill=red` that surface font, fill, border, conditional format metadata without modifying the workbook.
 - Style descriptions must default to human-readable color/format labels (e.g., “red fill,” “light green background,” “italic font”), while still offering raw RGB/ARGB codes as optional detail for scripting use.
+- When loading an existing `.xlsx`, default the active cursor to the workbook’s last selected cell (Excel’s “last edit position”) whenever that metadata exists; fall back to `A1` otherwise. Persist active-cell changes when saving back so Excel reopens at the user’s last location.
 
 ### 3.7 Column Search & History
 - Maintain last-search string and revisit via `fi` prompt history.

@@ -30,18 +30,20 @@ func SampleWorkbook() *Workbook {
 	return &Workbook{Cells: cells, Name: "sample", Sheet: "Sheet1", Styles: map[string]CellStyle{}}
 }
 
-// FromFile loads either CSV or XLSX data into a Workbook.
-func FromFile(path, sheet string) (*Workbook, error) {
+// FromFile loads either CSV or XLSX data into a Workbook and returns the sheet
+// names plus the workbook's last active cell (when available).
+func FromFile(path, sheet string) (*Workbook, []string, string, error) {
 	if path == "" {
-		return nil, fmt.Errorf("path is required")
+		return nil, nil, "", fmt.Errorf("path is required")
 	}
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".csv":
-		return FromCSV(path)
+		wb, err := FromCSV(path)
+		return wb, []string{"Sheet1"}, "", err
 	case ".xlsx":
 		return FromXLSX(path, sheet)
 	default:
-		return nil, fmt.Errorf("unsupported extension %s", filepath.Ext(path))
+		return nil, nil, "", fmt.Errorf("unsupported extension %s", filepath.Ext(path))
 	}
 }
 

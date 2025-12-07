@@ -11,7 +11,8 @@ var sampleCmd = &cobra.Command{
 	Use:   "sample",
 	Short: "Reload the built-in sample workbook",
 	Run: func(cmd *cobra.Command, args []string) {
-		appState.LoadWorkbook(workbook.SampleWorkbook())
+		wb := workbook.SampleWorkbook()
+		appState.LoadWorkbook(wb, "", []string{wb.Sheet}, "")
 		fmt.Fprintln(cmd.OutOrStdout(), "sample workbook loaded")
 	},
 }

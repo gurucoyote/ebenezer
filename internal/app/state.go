@@ -18,9 +18,11 @@ type Cursor struct {
 
 // State captures the high-level CLI session data.
 type State struct {
-	Workbook  *workbook.Workbook
-	Cursor    Cursor
-	Clipboard Clipboard
+	Workbook   *workbook.Workbook
+	Cursor     Cursor
+	Clipboard  Clipboard
+	SourcePath string
+	SheetNames []string
 }
 
 // ClipboardKind describes the type stored in the clipboard.
@@ -42,21 +44,27 @@ type Clipboard struct {
 
 // NewState initializes with sample workbook so the demo has data.
 func NewState() *State {
+	st := &State{}
 	wb := workbook.SampleWorkbook()
-	return &State{
-		Workbook: wb,
-		Cursor:   Cursor{Row: 1, Col: 1},
-	}
+	st.LoadWorkbook(wb, "", []string{wb.Sheet}, "")
+	return st
 }
 
 // LoadWorkbook swaps the active workbook and resets the cursor.
-func (s *State) LoadWorkbook(wb *workbook.Workbook) {
+func (s *State) LoadWorkbook(wb *workbook.Workbook, path string, sheets []string, activeCell string) {
 	if wb == nil {
 		return
 	}
 	s.Workbook = wb
+	s.SourcePath = path
+	s.SheetNames = append([]string(nil), sheets...)
 	s.Cursor = Cursor{Row: 1, Col: 1}
 	s.Clipboard = Clipboard{}
+	if activeCell != "" {
+		if err := s.Goto(activeCell); err == nil {
+			return
+		}
+	}
 }
 
 // Move adjusts the cursor, clamping to valid coordinates.

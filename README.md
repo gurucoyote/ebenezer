@@ -9,6 +9,7 @@ Ebenezer is a headless-yet-interactive spreadsheet editor with a Vim-inspired wo
 - Keyboard input loop lifted from the Gordon project (`internal/ui/keyboard`).
 - Workbook layer backed by in-memory sample data, CSV loading, and `.xlsx` parsing via Excelize (`internal/workbook`).
 - Keyboard demo supports arrow-key navigation, `g` to jump to a cell, `s`/`ct`/`rt`/`style` to inspect values and formatting, `:` to enter command mode, and `q` to exit.
+- `.xlsx` files reopen at the last active Excel cell/sheet when that metadata exists, and `ps` lets you list/switch sheets without reopening the file.
 
 ## Build & Run
 ```bash
@@ -26,7 +27,8 @@ While in keyboard mode:
 - `i` edits the current cell (inline prompt). `y` yanks, `x` cuts, `p`/`P` pastes (after/before), `d` `c` clears the cell.
 - `Y` yanks the current row, `X` cuts it, `D` deletes it, `O/o` insert blank rows above/below.
 - `:style` describes the formatting of the current (or specified) cell.
-- `:` enters command mode—run commands like `status`, `open js/test.xlsx --sheet Sheet1`, `colheader`, `rowheader`, `sample`, `style B3`.
+- `:ps` lists sheets; `:ps Sheet2` switches sheets (only for workbooks opened from disk).
+- `:` enters command mode—run commands like `status`, `open js/test.xlsx --sheet Sheet1`, `colheader`, `rowheader`, `sample`, `style B3`, `ps`.
 - `q` exits keyboard mode.
 
 ## Roadmap Highlights

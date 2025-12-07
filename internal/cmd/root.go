@@ -54,17 +54,18 @@ func rootRun(cmd *cobra.Command, args []string) error {
 		}
 	} else {
 		fmt.Fprintln(cmd.OutOrStdout(), "no file provided, using sample workbook")
-		appState.LoadWorkbook(workbook.SampleWorkbook())
+		wb := workbook.SampleWorkbook()
+		appState.LoadWorkbook(wb, "", []string{wb.Sheet}, "")
 	}
 	return runKeyboardMode(cmd)
 }
 
 func loadWorkbookFromArg(cmd *cobra.Command, path, sheet string) error {
-	wb, err := workbook.FromFile(path, sheet)
+	wb, sheets, active, err := workbook.FromFile(path, sheet)
 	if err != nil {
 		return err
 	}
-	appState.LoadWorkbook(wb)
+	appState.LoadWorkbook(wb, path, sheets, active)
 	fmt.Fprintf(cmd.OutOrStdout(), "loaded %s [%s]\n", wb.Name, wb.Sheet)
 	return nil
 }
