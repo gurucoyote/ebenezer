@@ -164,5 +164,8 @@ pkg/mcp/server.go           // MCP server implementation (Phase 2)
 4. **Milestone 4**: Build MCP server module, share command handlers, document protocol, integrate with Codex.
 5. **Milestone 5**: Performance tuning, package distribution, community feedback loop.
 
+### Future Directions
+- **Multi-workbook sessions**: allow multiple CSV/XLSX files to stay open simultaneously with commands to list/switch buffers (`:buffers`, `:b <n>`). Clipboard contents should be shareable across workbooks so copy/paste works between files. Requires refactoring `AppState` into a workspace and extending keyboard/command UX to show the active workbook.
+
 ---
 This spec provides the baseline requirements and architecture notes needed to start the Go rewrite while keeping future MCP integration in mind. Update it as design decisions are finalized.
