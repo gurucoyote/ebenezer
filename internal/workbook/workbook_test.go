@@ -44,3 +44,21 @@ func TestFromCSV(t *testing.T) {
 		t.Fatalf("expected qty 3 got %s", got)
 	}
 }
+
+func TestColumnName(t *testing.T) {
+	cases := map[int]string{
+		1:   "A",
+		26:  "Z",
+		27:  "AA",
+		52:  "AZ",
+		53:  "BA",
+		703: "AAA",
+		0:   "A",
+		-1:  "A",
+	}
+	for col, want := range cases {
+		if got := ColumnName(col); got != want {
+			t.Fatalf("col %d: expected %s, got %s", col, want, got)
+		}
+	}
+}

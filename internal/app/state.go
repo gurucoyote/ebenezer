@@ -117,22 +117,21 @@ func (s *State) Goto(address string) error {
 	return nil
 }
 
-// Address returns Excel-like cell reference (e.g., A1).
-func (s *State) Address() string {
-	return fmt.Sprintf("%s%d", columnName(s.Cursor.Col), s.Cursor.Row)
+// StyleAt returns style metadata for the provided cell address, or the
+// current cursor when address is empty.
+func (s *State) StyleAt(address string) (workbook.CellStyle, bool) {
+	if s.Workbook == nil {
+		return workbook.CellStyle{}, false
+	}
+	if strings.TrimSpace(address) == "" {
+		address = s.Address()
+	}
+	return s.Workbook.Style(address)
 }
 
-func columnName(col int) string {
-	if col <= 0 {
-		return "A"
-	}
-	name := ""
-	for col > 0 {
-		col--
-		name = string(rune('A'+(col%26))) + name
-		col /= 26
-	}
-	return name
+// Address returns Excel-like cell reference (e.g., A1).
+func (s *State) Address() string {
+	return fmt.Sprintf("%s%d", workbook.ColumnName(s.Cursor.Col), s.Cursor.Row)
 }
 
 func parseAddress(address string) (int, int, error) {

@@ -11,9 +11,10 @@ import (
 
 // Workbook is a minimal in-memory representation for demo purposes.
 type Workbook struct {
-	Cells [][]string
-	Name  string
-	Sheet string
+	Cells  [][]string
+	Name   string
+	Sheet  string
+	Styles map[string]CellStyle
 }
 
 // SampleWorkbook seeds demo data without hitting the filesystem.
@@ -25,7 +26,7 @@ func SampleWorkbook() *Workbook {
 		{"Ink", "1", "$42"},
 		{"Total", "8", "$64"},
 	}
-	return &Workbook{Cells: cells, Name: "sample", Sheet: "Sheet1"}
+	return &Workbook{Cells: cells, Name: "sample", Sheet: "Sheet1", Styles: map[string]CellStyle{}}
 }
 
 // FromFile loads either CSV or XLSX data into a Workbook.
@@ -63,7 +64,16 @@ func FromCSV(path string) (*Workbook, error) {
 		}
 		rows = append(rows, record)
 	}
-	return &Workbook{Cells: rows, Name: path, Sheet: "Sheet1"}, nil
+	return &Workbook{Cells: rows, Name: path, Sheet: "Sheet1", Styles: map[string]CellStyle{}}, nil
+}
+
+// Style returns style information for the given cell address (e.g., "B2").
+func (w *Workbook) Style(address string) (CellStyle, bool) {
+	if w == nil || w.Styles == nil {
+		return CellStyle{}, false
+	}
+	style, ok := w.Styles[strings.ToUpper(address)]
+	return style, ok
 }
 
 // Cell returns the value at 1-based row/col, empty string if out of bounds.
@@ -93,4 +103,18 @@ func (w *Workbook) MaxCoords() (int, int) {
 		}
 	}
 	return rows, cols
+}
+
+// ColumnName converts a 1-based column index into its Excel column string.
+func ColumnName(col int) string {
+	if col <= 0 {
+		return "A"
+	}
+	name := ""
+	for col > 0 {
+		col--
+		name = string(rune('A'+(col%26))) + name
+		col /= 26
+	}
+	return name
 }
