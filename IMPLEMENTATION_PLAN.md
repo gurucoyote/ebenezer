@@ -41,8 +41,8 @@ Tasks:
 2. [~] **Workbook I/O** (`internal/workbook/io.go`): CSV + Excelize-based `.xlsx` loading done; saving, delimiter overrides, and style snapshots still pending.
 3. [ ] **Terminal Raw Mode** (`internal/ui/terminal.go`): not started (current demo uses lifted keyboard loop only).
 4. [ ] **Command Registry** (`internal/commands/registry.go`): TBD — current commands directly call state.
-5. [~] **Navigation Commands**: arrow key handlers exist via `move` command; `g`, `ct`, `rt` pending.
-6. [ ] **Editing Commands**: not started.
+5. [x] **Navigation Commands**: arrow key handlers, goto, row/column headers wired via Cobra + keyboard shortcuts.
+6. [~] **Editing Commands**: single-cell edit/yank/cut/paste/clear implemented; row/column operations pending.
 7. [ ] **Style Snapshot Helpers**: not started.
 8. [x] **Status Reporting** (`internal/ui/status.go`): prints cursor/value after commands.
 
