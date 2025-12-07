@@ -3,7 +3,7 @@
 This plan translates the high-level requirements captured in `SPEC.md` into scoped work packages, ordered milestones, and concrete acceptance criteria. Section references (e.g., §3.4) point back to the source spec for traceability.
 
 ## 0. Foundational Assumptions
-- Go 1.22+ toolchain with modules and `make` available.
+- Go 1.22+ toolchain with modules; builds flow through `build.sh` (Makefile optional per requirements).
 - Workspace-write sandbox with no CGO; external deps limited to those listed in §6 unless a change request is raised.
 - Unit/integration testing required for every non-trivial package prior to merging.
 - CLI UX must remain parity-compatible with the Node prototype (see `js/`) where behavior is defined there but not explicitly restated in the spec.
@@ -26,7 +26,7 @@ This plan translates the high-level requirements captured in `SPEC.md` into scop
 ### Milestone 0 – Project Bootstrap (Week 1)
 **Goals**: Scaffolding, tooling, and automation baseline.
 1. [x] Initialize Go module (`go.mod`) with cobra/viper/excelize dependencies (current scope: cobra, keyboard, readline).
-2. [x] Provide a repeatable build entry point (`build.sh`); Makefile optional.
+2. [x] Provide a repeatable build entry point (`build.sh`); Makefile intentionally deferred per updated requirements.
 3. [x] Set up local `go test ./...` workflow (CI optional in this phase).
 4. [x] Establish `internal/app`, `internal/ui`, `internal/workbook` package skeletons with docstrings referencing SPEC sections. *(Status: skeletons exist, docstrings TODO.)*
 5. [x] Add basic unit test harness (table-driven tests) covering cursor math (`internal/app/state_test.go`) and workbook helpers (`internal/workbook/workbook_test.go`).
@@ -45,6 +45,8 @@ Tasks:
 6. [~] **Editing Commands**: cell + row edit/yank/cut/paste/clear implemented; column operations and save/write flows pending.
 7. [ ] **Style Snapshot Helpers**: not started.
 8. [x] **Status Reporting** (`internal/ui/status.go`): prints cursor/value after commands.
+9. [x] **Visual Selection Mode**: rectangular (`v`) and row (`V`) selections update AppState, drive clipboard-aware `y/x/p/d`, and surface status-line summaries with ESC to exit.
+10. [x] **Search UX Settings**: `/` `?` `n` `N` implemented with configurable case-sensitivity (default insensitive) via `search-case` command.
 
 Testing:
 - [ ] Unit tests (cursor math, clipboard, etc.).
@@ -59,8 +61,8 @@ Exit Criteria (current status):
 Scope: §3.5–3.7, §7 (history), §8 enhancements.
 
 Tasks:
-1. **Formula Engine** (`internal/formula/engine.go`): integrate excelize evaluation, fallback to `#ERR`, warn on circular refs.
-2. **Column Search Module** (`internal/search/search.go`): regex search, match list, navigation.
+1. **Formula Engine** (`internal/formula/engine.go`): integrate excelize evaluation, fallback to `#ERR`, warn on circular refs. If Excelize’s runtime proves too heavy, ship behind an opt-in flag without blocking the milestone.
+2. **Column Search Module** (`internal/search/search.go`): regex search, match list, navigation, and Vim-style `/` `?` `n` `N` bindings that wrap around the sheet and remember the last query.
 3. **Prompt/Survey Integration**: adopt `survey` widgets for sheet picker, filename history, search result selection.
 4. **Filename History Persistence**: `internal/history/history.go` using Viper config at `$XDG_CONFIG_HOME`.
 5. **Autosave Toggle**: config flag, temp file write + rename per §9.
@@ -140,6 +142,6 @@ Exit Criteria:
 - Issue templates for bug/feature requests tied to milestones.
 
 ## 6. Next Steps
-1. Review and approve this plan with stakeholders.
-2. Create GitHub Project board with one column per milestone and cards per numbered task above.
-3. Kick off Milestone 0 by scaffolding Go module and automation as described.
+1. Harden the new visual-selection clipboard flows with additional workbook fixtures (multi-sheet, styled ranges) and capture any regressions in `internal/app` tests.
+2. Implement column search + MRU history per §3.7 so the CLI can jump between matches and remember recently saved files.
+3. Stand up the formula-evaluation scaffold (§3.5) so computed values display alongside raw cell contents.

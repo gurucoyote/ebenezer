@@ -16,14 +16,34 @@ type Cursor struct {
 	Col int
 }
 
+// SelectionMode represents the current visual selection behavior.
+type SelectionMode int
+
+const (
+	SelectionNone SelectionMode = iota
+	SelectionRange
+	SelectionRow
+)
+
+// Selection keeps track of anchor/mode for visual selections.
+type Selection struct {
+	Mode   SelectionMode
+	Anchor Cursor
+	Active bool
+}
+
 // State captures the high-level CLI session data.
 type State struct {
-	Workbook       *workbook.Workbook
-	Cursor         Cursor
-	Clipboard      Clipboard
-	StyleClipboard StyleClipboard
-	SourcePath     string
-	SheetNames     []string
+	Workbook            *workbook.Workbook
+	Cursor              Cursor
+	Clipboard           Clipboard
+	StyleClipboard      StyleClipboard
+	SourcePath          string
+	SheetNames          []string
+	Selection           Selection
+	lastSearchQuery     string
+	lastSearchForward   bool
+	SearchCaseSensitive bool
 }
 
 // ClipboardKind describes the type stored in the clipboard.
@@ -33,14 +53,17 @@ const (
 	ClipboardNone ClipboardKind = iota
 	ClipboardCell
 	ClipboardRow
+	ClipboardRange
 )
 
 // Clipboard stores yank/cut data.
 type Clipboard struct {
-	Kind      ClipboardKind
-	CellValue string
-	RowValues []string
-	RowStyles map[int]workbook.CellStyle
+	Kind        ClipboardKind
+	CellValue   string
+	Rows        [][]string
+	RowStyles   []map[int]workbook.CellStyle
+	RangeValues [][]string
+	RangeStyles map[int]map[int]workbook.CellStyle
 }
 
 type StyleClipboard struct {
@@ -68,11 +91,161 @@ func (s *State) LoadWorkbook(wb *workbook.Workbook, path string, sheets []string
 	s.Cursor = Cursor{Row: 1, Col: 1}
 	s.Clipboard = Clipboard{}
 	s.StyleClipboard = StyleClipboard{}
+	s.Selection = Selection{}
+	s.lastSearchQuery = ""
+	s.lastSearchForward = true
+	s.SearchCaseSensitive = false
 	s.Workbook.ActiveCell = activeCell
 	if activeCell != "" && s.Goto(activeCell) == nil {
 		return
 	}
 	s.updateActiveCell()
+}
+
+// BeginSelection activates visual selection with the current cursor as anchor.
+func (s *State) BeginSelection(mode SelectionMode) {
+	if s.Workbook == nil {
+		return
+	}
+	s.Selection = Selection{Mode: mode, Anchor: s.Cursor, Active: true}
+}
+
+// ToggleSelection switches visual selection on/off depending on the requested mode.
+func (s *State) ToggleSelection(mode SelectionMode) {
+	if s.Selection.Active && s.Selection.Mode == mode {
+		s.ClearSelection()
+		return
+	}
+	s.BeginSelection(mode)
+}
+
+// ClearSelection exits visual mode.
+func (s *State) ClearSelection() {
+	s.Selection = Selection{}
+}
+
+// HasSelection reports whether visual mode is currently active.
+func (s *State) HasSelection() bool {
+	return s.Selection.Active && s.Selection.Mode != SelectionNone
+}
+
+// SelectionBounds returns the inclusive rectangular bounds of the active selection.
+func (s *State) SelectionBounds() (startRow, startCol, endRow, endCol int, ok bool) {
+	if !s.HasSelection() {
+		return 0, 0, 0, 0, false
+	}
+	startRow, startCol = s.Selection.Anchor.Row, s.Selection.Anchor.Col
+	endRow, endCol = s.Cursor.Row, s.Cursor.Col
+	if startRow < 1 {
+		startRow = 1
+	}
+	if startCol < 1 {
+		startCol = 1
+	}
+	if endRow < 1 {
+		endRow = 1
+	}
+	if endCol < 1 {
+		endCol = 1
+	}
+	if startRow > endRow {
+		startRow, endRow = endRow, startRow
+	}
+	if startCol > endCol {
+		startCol, endCol = endCol, startCol
+	}
+	if s.Selection.Mode == SelectionRow {
+		startCol = 1
+		maxRow, maxCol := 0, 0
+		if s.Workbook != nil {
+			maxRow, maxCol = s.Workbook.MaxCoords()
+		}
+		if maxRow == 0 {
+			maxRow = endRow
+		}
+		if maxCol == 0 {
+			maxCol = 1
+		}
+		if endRow > maxRow {
+			endRow = maxRow
+		}
+		endCol = maxCol
+	}
+	return startRow, startCol, endRow, endCol, true
+}
+
+// SelectionRowBounds returns only the row portion of the current selection.
+func (s *State) SelectionRowBounds() (startRow, endRow int, ok bool) {
+	startRow, _, endRow, _, ok = s.SelectionBounds()
+	return
+}
+
+// SelectionSummary renders a concise description suitable for status output.
+func (s *State) SelectionSummary() string {
+	if !s.HasSelection() {
+		return ""
+	}
+	startRow, startCol, endRow, endCol, ok := s.SelectionBounds()
+	if !ok {
+		return ""
+	}
+	if s.Selection.Mode == SelectionRow {
+		if startRow == endRow {
+			return fmt.Sprintf("rows %d", startRow)
+		}
+		return fmt.Sprintf("rows %d-%d", startRow, endRow)
+	}
+	height := endRow - startRow + 1
+	width := endCol - startCol + 1
+	return fmt.Sprintf("%s%d:%s%d (%dx%d)", workbook.ColumnName(startCol), startRow, workbook.ColumnName(endCol), endRow, height, width)
+}
+
+// LastSearchQuery exposes the most recent search string for prompts.
+func (s *State) LastSearchQuery() string {
+	return s.lastSearchQuery
+}
+
+// Search finds the next cell containing the provided term. When forward is
+// false, the search runs in reverse. Matches wrap around the sheet.
+func (s *State) Search(term string, forward bool) error {
+	if s.Workbook == nil {
+		return errors.New("no workbook loaded")
+	}
+	trimmed := strings.TrimSpace(term)
+	if trimmed == "" {
+		return errors.New("search term required")
+	}
+	if !s.performSearch(trimmed, forward) {
+		return fmt.Errorf("no match for %q", trimmed)
+	}
+	s.lastSearchQuery = trimmed
+	s.lastSearchForward = forward
+	return nil
+}
+
+// RepeatSearch reruns the previous search. When sameDirection is false, the
+// search direction is flipped (mirroring Vim's `N`).
+func (s *State) RepeatSearch(sameDirection bool) error {
+	if s.Workbook == nil {
+		return errors.New("no workbook loaded")
+	}
+	if s.lastSearchQuery == "" {
+		return errors.New("no previous search")
+	}
+	forward := s.lastSearchForward
+	if !sameDirection {
+		forward = !forward
+	}
+	if !s.performSearch(s.lastSearchQuery, forward) {
+		return fmt.Errorf("no match for %q", s.lastSearchQuery)
+	}
+	s.lastSearchForward = forward
+	return nil
+}
+
+// SetSearchCaseSensitivity toggles case-sensitive matching.
+func (s *State) SetSearchCaseSensitivity(enable bool) {
+	s.SearchCaseSensitive = enable
 }
 
 // Move adjusts the cursor, clamping to valid coordinates.
@@ -200,12 +373,55 @@ func (s *State) ClearCurrentCell() {
 	if s.Workbook == nil {
 		return
 	}
+	if s.HasSelection() {
+		if s.Selection.Mode == SelectionRow {
+			if startRow, endRow, ok := s.SelectionRowBounds(); ok {
+				s.deleteRowRange(startRow, endRow)
+			}
+		} else {
+			if startRow, startCol, endRow, endCol, ok := s.SelectionBounds(); ok {
+				s.clearRange(startRow, startCol, endRow, endCol)
+			}
+		}
+		s.ClearSelection()
+		s.updateActiveCell()
+		return
+	}
 	s.Workbook.ClearCell(s.Cursor.Row, s.Cursor.Col)
 	s.updateActiveCell()
 }
 
 // YankCurrentCell copies the current cell into the clipboard without mutation.
 func (s *State) YankCurrentCell() string {
+	if s.Workbook == nil {
+		return ""
+	}
+	if s.HasSelection() {
+		if s.Selection.Mode == SelectionRow {
+			if startRow, endRow, ok := s.SelectionRowBounds(); ok {
+				rows, styles := s.collectRows(startRow, endRow)
+				s.Clipboard = Clipboard{Kind: ClipboardRow, Rows: rows, RowStyles: styles}
+				value := ""
+				if len(rows) > 0 && len(rows[0]) > 0 {
+					value = rows[0][0]
+				}
+				s.ClearSelection()
+				return value
+			}
+		}
+		if startRow, startCol, endRow, endCol, ok := s.SelectionBounds(); ok {
+			values, styles := s.collectRangeValues(startRow, startCol, endRow, endCol)
+			s.Clipboard = Clipboard{Kind: ClipboardRange, RangeValues: values, RangeStyles: styles}
+			value := ""
+			if len(values) > 0 && len(values[0]) > 0 {
+				value = values[0][0]
+			}
+			s.ClearSelection()
+			return value
+		}
+		s.ClearSelection()
+		return ""
+	}
 	value := s.CurrentValue()
 	s.Clipboard = Clipboard{Kind: ClipboardCell, CellValue: value}
 	return value
@@ -213,9 +429,41 @@ func (s *State) YankCurrentCell() string {
 
 // CutCurrentCell copies the current cell into the clipboard and clears it.
 func (s *State) CutCurrentCell() string {
+	if s.Workbook == nil {
+		return ""
+	}
+	if s.HasSelection() {
+		if s.Selection.Mode == SelectionRow {
+			if startRow, endRow, ok := s.SelectionRowBounds(); ok {
+				rows, styles := s.collectRows(startRow, endRow)
+				s.Clipboard = Clipboard{Kind: ClipboardRow, Rows: rows, RowStyles: styles}
+				s.deleteRowRange(startRow, endRow)
+				s.ClearSelection()
+				s.updateActiveCell()
+				if len(rows) > 0 && len(rows[0]) > 0 {
+					return rows[0][0]
+				}
+				return ""
+			}
+		}
+		if startRow, startCol, endRow, endCol, ok := s.SelectionBounds(); ok {
+			values, styles := s.collectRangeValues(startRow, startCol, endRow, endCol)
+			s.Clipboard = Clipboard{Kind: ClipboardRange, RangeValues: values, RangeStyles: styles}
+			s.clearRange(startRow, startCol, endRow, endCol)
+			s.ClearSelection()
+			s.updateActiveCell()
+			if len(values) > 0 && len(values[0]) > 0 {
+				return values[0][0]
+			}
+			return ""
+		}
+		s.ClearSelection()
+		return ""
+	}
 	value := s.CurrentValue()
 	s.Clipboard = Clipboard{Kind: ClipboardCell, CellValue: value}
-	s.ClearCurrentCell()
+	s.Workbook.ClearCell(s.Cursor.Row, s.Cursor.Col)
+	s.updateActiveCell()
 	return value
 }
 
@@ -225,22 +473,94 @@ func (s *State) PasteClipboard(before bool) error {
 	if s.Workbook == nil {
 		return errors.New("no workbook loaded")
 	}
+	targetRow := s.Cursor.Row
+	targetCol := s.Cursor.Col
+	targetBefore := before
+	destHeight, destWidth := 0, 0
+	if s.HasSelection() {
+		if s.Selection.Mode == SelectionRow {
+			if startRow, endRow, ok := s.SelectionRowBounds(); ok {
+				s.deleteRowRange(startRow, endRow)
+				targetRow = startRow
+				s.Cursor.Row = startRow
+				targetBefore = true
+			}
+		} else if startRow, startCol, endRow, endCol, ok := s.SelectionBounds(); ok {
+			targetRow = startRow
+			targetCol = startCol
+			destHeight = endRow - startRow + 1
+			destWidth = endCol - startCol + 1
+			s.Cursor = Cursor{Row: startRow, Col: startCol}
+		}
+		s.ClearSelection()
+	}
 	switch s.Clipboard.Kind {
 	case ClipboardCell:
-		s.Workbook.SetCell(s.Cursor.Row, s.Cursor.Col, s.Clipboard.CellValue)
+		if destHeight > 0 && destWidth > 0 {
+			for r := 0; r < destHeight; r++ {
+				for c := 0; c < destWidth; c++ {
+					s.Workbook.SetCell(targetRow+r, targetCol+c, s.Clipboard.CellValue)
+				}
+			}
+			return nil
+		}
+		s.Workbook.SetCell(targetRow, targetCol, s.Clipboard.CellValue)
 		return nil
 	case ClipboardRow:
-		row := make([]string, len(s.Clipboard.RowValues))
-		copy(row, s.Clipboard.RowValues)
-		target := s.Cursor.Row
-		if !before {
+		if len(s.Clipboard.Rows) == 0 {
+			return errors.New("clipboard empty")
+		}
+		target := targetRow
+		if !targetBefore {
 			target++
 		}
-		s.Workbook.InsertRow(target, row)
-		for col, style := range s.Clipboard.RowStyles {
-			s.Workbook.SetStyle(target, col, style)
+		for i, rowValues := range s.Clipboard.Rows {
+			insertIdx := target + i
+			row := make([]string, len(rowValues))
+			copy(row, rowValues)
+			s.Workbook.InsertRow(insertIdx, row)
+			if i < len(s.Clipboard.RowStyles) {
+				for col, style := range s.Clipboard.RowStyles[i] {
+					s.Workbook.SetStyle(insertIdx, col, style)
+				}
+			}
 		}
 		return nil
+	case ClipboardRange:
+		if len(s.Clipboard.RangeValues) == 0 {
+			return errors.New("clipboard empty")
+		}
+		clipHeight := len(s.Clipboard.RangeValues)
+		clipWidth := 0
+		if clipHeight > 0 {
+			clipWidth = len(s.Clipboard.RangeValues[0])
+		}
+		if clipWidth == 0 {
+			return errors.New("clipboard empty")
+		}
+		if destHeight > 0 && destWidth > 0 {
+			if clipHeight == 1 && clipWidth == 1 {
+				value := s.Clipboard.RangeValues[0][0]
+				var style workbook.CellStyle
+				if rowStyle, ok := s.Clipboard.RangeStyles[0]; ok {
+					style = rowStyle[0]
+				}
+				for r := 0; r < destHeight; r++ {
+					for c := 0; c < destWidth; c++ {
+						s.Workbook.SetCell(targetRow+r, targetCol+c, value)
+						if !style.Empty() {
+							s.Workbook.SetStyle(targetRow+r, targetCol+c, style)
+						}
+					}
+				}
+				return nil
+			}
+			if clipHeight != destHeight || clipWidth != destWidth {
+				return errors.New("destination selection size must match copied range")
+			}
+			return s.applyRangeClipboard(targetRow, targetCol, clipHeight, clipWidth)
+		}
+		return s.applyRangeClipboard(targetRow, targetCol, clipHeight, clipWidth)
 	default:
 		return errors.New("clipboard empty")
 	}
@@ -253,7 +573,10 @@ func (s *State) YankCurrentRow() []string {
 	}
 	row := s.Workbook.Row(s.Cursor.Row)
 	styles := s.collectRowStyles(s.Cursor.Row)
-	s.Clipboard = Clipboard{Kind: ClipboardRow, RowValues: row, RowStyles: styles}
+	if row == nil {
+		row = []string{}
+	}
+	s.Clipboard = Clipboard{Kind: ClipboardRow, Rows: [][]string{row}, RowStyles: []map[int]workbook.CellStyle{styles}}
 	return row
 }
 
@@ -322,6 +645,174 @@ func (s *State) collectRowStyles(row int) map[int]workbook.CellStyle {
 		}
 	}
 	return styles
+}
+
+func (s *State) collectRows(startRow, endRow int) ([][]string, []map[int]workbook.CellStyle) {
+	if s.Workbook == nil {
+		return nil, nil
+	}
+	if startRow > endRow {
+		startRow, endRow = endRow, startRow
+	}
+	count := endRow - startRow + 1
+	if count < 1 {
+		return nil, nil
+	}
+	rows := make([][]string, 0, count)
+	styles := make([]map[int]workbook.CellStyle, 0, count)
+	for row := startRow; row <= endRow; row++ {
+		data := s.Workbook.Row(row)
+		if data == nil {
+			data = []string{}
+		}
+		rows = append(rows, data)
+		styles = append(styles, s.collectRowStyles(row))
+	}
+	return rows, styles
+}
+
+func (s *State) collectRangeValues(startRow, startCol, endRow, endCol int) ([][]string, map[int]map[int]workbook.CellStyle) {
+	values := [][]string{}
+	styles := map[int]map[int]workbook.CellStyle{}
+	if s.Workbook == nil {
+		return values, styles
+	}
+	if startRow > endRow {
+		startRow, endRow = endRow, startRow
+	}
+	if startCol > endCol {
+		startCol, endCol = endCol, startCol
+	}
+	height := endRow - startRow + 1
+	width := endCol - startCol + 1
+	values = make([][]string, height)
+	for r := 0; r < height; r++ {
+		values[r] = make([]string, width)
+		absRow := startRow + r
+		for c := 0; c < width; c++ {
+			absCol := startCol + c
+			values[r][c] = s.Workbook.Cell(absRow, absCol)
+			addr := fmt.Sprintf("%s%d", workbook.ColumnName(absCol), absRow)
+			if style, ok := s.Workbook.Style(addr); ok {
+				if styles[r] == nil {
+					styles[r] = map[int]workbook.CellStyle{}
+				}
+				styles[r][c] = style
+			}
+		}
+	}
+	return values, styles
+}
+
+func (s *State) clearRange(startRow, startCol, endRow, endCol int) {
+	if s.Workbook == nil {
+		return
+	}
+	if startRow > endRow {
+		startRow, endRow = endRow, startRow
+	}
+	if startCol > endCol {
+		startCol, endCol = endCol, startCol
+	}
+	for row := startRow; row <= endRow; row++ {
+		for col := startCol; col <= endCol; col++ {
+			s.Workbook.ClearCell(row, col)
+		}
+	}
+}
+
+func (s *State) deleteRowRange(start, end int) {
+	if s.Workbook == nil {
+		return
+	}
+	if start > end {
+		start, end = end, start
+	}
+	for row := start; row <= end; row++ {
+		s.deleteRow(start)
+	}
+	maxRow, _ := s.Workbook.MaxCoords()
+	if maxRow == 0 {
+		s.Cursor.Row = 1
+		return
+	}
+	if start > maxRow {
+		s.Cursor.Row = maxRow
+		return
+	}
+	s.Cursor.Row = start
+}
+
+func (s *State) applyRangeClipboard(rowStart, colStart, height, width int) error {
+	for r := 0; r < height && r < len(s.Clipboard.RangeValues); r++ {
+		rowValues := s.Clipboard.RangeValues[r]
+		for c := 0; c < width && c < len(rowValues); c++ {
+			value := rowValues[c]
+			row := rowStart + r
+			col := colStart + c
+			s.Workbook.SetCell(row, col, value)
+			if rowStyle, ok := s.Clipboard.RangeStyles[r]; ok {
+				if style, ok := rowStyle[c]; ok {
+					s.Workbook.SetStyle(row, col, style)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (s *State) performSearch(term string, forward bool) bool {
+	if s.Workbook == nil {
+		return false
+	}
+	maxRow, maxCol := s.Workbook.MaxCoords()
+	if maxRow == 0 || maxCol == 0 {
+		return false
+	}
+	target := term
+	caseInsensitive := !s.SearchCaseSensitive
+	if caseInsensitive {
+		target = strings.ToLower(term)
+	}
+	row, col := s.Cursor.Row, s.Cursor.Col
+	total := maxRow * maxCol
+	for steps := 0; steps < total; steps++ {
+		row, col = advancePosition(row, col, forward, maxRow, maxCol)
+		value := s.Workbook.Cell(row, col)
+		if caseInsensitive {
+			value = strings.ToLower(value)
+		}
+		if strings.Contains(value, target) {
+			s.Cursor = Cursor{Row: row, Col: col}
+			s.ClearSelection()
+			s.updateActiveCell()
+			return true
+		}
+	}
+	return false
+}
+
+func advancePosition(row, col int, forward bool, maxRow, maxCol int) (int, int) {
+	if forward {
+		col++
+		if col > maxCol {
+			col = 1
+			row++
+			if row > maxRow {
+				row = 1
+			}
+		}
+		return row, col
+	}
+	col--
+	if col < 1 {
+		col = maxCol
+		row--
+		if row < 1 {
+			row = maxRow
+		}
+	}
+	return row, col
 }
 
 // Address returns Excel-like cell reference (e.g., A1).

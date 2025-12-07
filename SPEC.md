@@ -29,6 +29,7 @@ Key workflows:
 ### 3.2 Modes & Key Handling
 - Default to **Normal mode** in raw terminal input. Buffer sequences within configurable `keyWait` (default 250ms) to match multi-key commands.
 - **Insert mode** temporarily disables key-sequence capture to allow freeform text entry, with ESC to abort edits.
+- All prompts (insert, goto, search, filename) must support standard readline/Vim-style editing shortcuts like `Ctrl-U` (clear input) and `Ctrl-W` (delete previous word) for muscle-memory parity with shell workflows.
 - Maintain a command registry mapping sequences to actions and help text; pressing `h`/`?` prints grouped help.
 
 ### 3.3 Navigation Commands
@@ -39,12 +40,15 @@ Key workflows:
 - `ps`: prompt with sheet list, switch when valid choice made, and allow `ps <name>` for non-interactive environments. Sheet list should be sourced from the current workbook and highlight the active sheet.
 - `ns`: prompt for new sheet name, validate uniqueness, create sheet, and switch focus. Support cloning an existing sheet (e.g., `ns BudgetCopy Budget` duplicates Budget into BudgetCopy).
 - `wb`: save workbook; prompt with filename history, support `.xlsx` and `.csv` (sheet-scoped writer). Support `w` (save) and `w <filename>`/`w!` (save-as/overwrite) Vim-style aliases that mirror Cobra commands `save`/`saveas`.
+- **Visual selections**: `v` toggles rectangular selections anchored at the current cell while `V` toggles whole-row selections. Arrow/goto movement expands the selection, ESC exits back to normal mode, and the status line must surface a `VISUAL <range>` summary so users can confirm what is highlighted. Editing commands (`y/x/p/d`) operate on the active selection: rectangular selections copy/cut the exact range, row selections treat the highlighted rows like Vim linewise mode, `p` replaces the selection (row selections are removed before paste), and pasting into a rectangular selection requires matching dimensions unless the clipboard holds a single cell, in which case the value/style is broadcast across the selection.
+- **Search navigation**: `/pattern` searches forward, `?pattern` searches backward, matching substrings inside any visible cell (case-insensitive). Searches wrap around the current sheet. `n` repeats the last search in the same direction, `N` repeats in the opposite direction, and the most recent search string should pre-populate the prompt for quick refinement. When no match is found, surface a clear status error but leave the cursor at its prior location.
+- **Search navigation**: `/pattern` searches forward, `?pattern` searches backward, matching substrings inside any visible cell. Searches wrap around the current sheet. `n` repeats the last search in the same direction, `N` repeats in the opposite direction, and the most recent search string should pre-populate the prompt for quick refinement. When no match is found, surface a clear status error but leave the cursor at its prior location. Users must be able to toggle case sensitivity (`search-case sensitive|insensitive`, default insensitive) so workflows that rely on case cues remain accurate.
 - `:` (stretch goal) open Go REPL or Lua-like scripting environment (optional for parity).
 
 ### 3.5 Formula Evaluation
 - Display cell value or resolved formula result when reporting the current cell.
 - Support evaluation of Excel-compatible formulas (SUM, AVERAGE, references, ranges) within a single sheet; circular references yield warning and raw formula.
-- Provide fallback when a formula cannot be evaluated (log error, display `#ERR`).
+- Provide fallback when a formula cannot be evaluated (log error, display `#ERR`). Because Excelize’s runtime evaluation can carry meaningful overhead, formula evaluation may be shipped as an optional/experimental feature flag without blocking the core CLI milestone.
 
 ### 3.6 Formatting & Styling Integrity
 - All CLI operations must preserve existing cell formatting (fonts, fills, borders, number formats, conditional formatting, merged cells) unless a future feature explicitly edits style metadata.
@@ -58,10 +62,14 @@ Key workflows:
 - Add `style copy [range]` / `style paste [range]` commands (and keyboard shortcuts) that copy formatting from a cell/range and apply it to another cell/range, mirroring Excel’s Format Painter behavior. Support rectangular ranges; when sizes differ, pasting a single-source style should fill any destination range.
 
 ### 3.7 Column Search & History
-- Maintain last-search string and revisit via `fi` prompt history.
+- Maintain last-search string and revisit via `fi` prompt history as well as modal shortcuts (`/`, `?`, `n`, `N`).
 - Provide user-friendly navigation: after populating results, the user selects via arrow keys or enters a coordinate.
 
 - Maintain MRU filename list (max configurable, default 5) in memory; persist via Viper-managed config file (default `$XDG_CONFIG_HOME/ebenezer/config.yaml`) for future sessions.
+
+**Future Extensions**
+- Allow optional regex-powered searches (case-sensitive toggle) for power users who need pattern matching beyond substring checks.
+- Explore fuzzy search (e.g., Damerau-Levenshtein based) so near-miss queries still surface likely matches, especially for human-entered labels.
 
 ## 4. Non-Functional Requirements
 - **Portability**: builds for macOS, Linux, Windows without CGO.

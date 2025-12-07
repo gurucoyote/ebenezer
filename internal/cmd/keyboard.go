@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"unicode"
 
+	"ebenezer/internal/app"
 	"ebenezer/internal/ui/keyboard"
 	"ebenezer/internal/ui/status"
 	githubkeyboard "github.com/eiannone/keyboard"
@@ -45,9 +47,16 @@ func runKeyboardMode(c *cobra.Command) error {
 				githubkeyboard.KeyArrowRight: moveAction("right"),
 				githubkeyboard.KeyArrowUp:    moveAction("up"),
 				githubkeyboard.KeyArrowDown:  moveAction("down"),
+				githubkeyboard.KeyEsc:        clearSelectionAction(c),
 			},
 			Runes: map[rune]keyboard.Action{
 				'i': insertShortcut(c),
+				'/': searchShortcut(c, false),
+				'?': searchShortcut(c, true),
+				'n': simpleCommand("search-next"),
+				'N': simpleCommand("search-prev"),
+				'v': visualRangeShortcut(c),
+				'V': visualRowShortcut(c),
 				's': func(ctx *keyboard.Context) error {
 					status.Print(c.OutOrStdout(), appState)
 					return nil
@@ -107,8 +116,7 @@ func promptForAddress(c *cobra.Command) (string, error) {
 	out := c.OutOrStdout()
 	current := appState.Address()
 	fmt.Fprintf(out, "\nGoto cell (ESC to cancel) [%s]: ", current)
-	buffer := []rune(current)
-	fmt.Fprint(out, current)
+	buffer := []rune{}
 	for {
 		char, key, err := githubkeyboard.GetKey()
 		if err != nil {
@@ -120,12 +128,18 @@ func promptForAddress(c *cobra.Command) (string, error) {
 			return "", errPromptCanceled
 		case githubkeyboard.KeyEnter:
 			fmt.Fprintln(out)
+			if len(buffer) == 0 {
+				return strings.TrimSpace(strings.ToUpper(current)), nil
+			}
 			return strings.TrimSpace(strings.ToUpper(string(buffer))), nil
 		case githubkeyboard.KeyBackspace, githubkeyboard.KeyBackspace2:
 			if len(buffer) > 0 {
 				buffer = buffer[:len(buffer)-1]
 				fmt.Fprint(out, "\b \b")
 			}
+		case githubkeyboard.KeyCtrlU, githubkeyboard.KeyCtrlW:
+			handleEditingControl(out, key, &buffer)
+			continue
 		default:
 			if unicode.IsLetter(char) {
 				char = unicode.ToUpper(char)
@@ -152,6 +166,32 @@ func columnHeaderShortcut() keyboard.Action {
 	}
 }
 
+func visualRangeShortcut(c *cobra.Command) keyboard.Action {
+	return func(ctx *keyboard.Context) error {
+		appState.ToggleSelection(app.SelectionRange)
+		status.Print(c.OutOrStdout(), appState)
+		return nil
+	}
+}
+
+func visualRowShortcut(c *cobra.Command) keyboard.Action {
+	return func(ctx *keyboard.Context) error {
+		appState.ToggleSelection(app.SelectionRow)
+		status.Print(c.OutOrStdout(), appState)
+		return nil
+	}
+}
+
+func clearSelectionAction(c *cobra.Command) keyboard.Action {
+	return func(ctx *keyboard.Context) error {
+		if appState.HasSelection() {
+			appState.ClearSelection()
+			status.Print(c.OutOrStdout(), appState)
+		}
+		return nil
+	}
+}
+
 func rowHeaderShortcut() keyboard.Action {
 	return func(ctx *keyboard.Context) error {
 		match, err := expectNextRune('t')
@@ -162,6 +202,31 @@ func rowHeaderShortcut() keyboard.Action {
 			return nil
 		}
 		return ctx.Executor.ExecuteCommand([]string{"rowheader"})
+	}
+}
+
+func searchShortcut(c *cobra.Command, reverse bool) keyboard.Action {
+	return func(ctx *keyboard.Context) error {
+		initial := appState.LastSearchQuery()
+		value, err := promptForSearch(c, initial, reverse)
+		if err != nil {
+			if errors.Is(err, errPromptCanceled) {
+				return nil
+			}
+			return err
+		}
+		term := strings.TrimSpace(value)
+		if term == "" {
+			term = strings.TrimSpace(initial)
+		}
+		if term == "" {
+			return nil
+		}
+		args := []string{"search", term}
+		if reverse {
+			args = []string{"search", "--reverse", term}
+		}
+		return ctx.Executor.ExecuteCommand(args)
 	}
 }
 
@@ -228,6 +293,9 @@ func promptForText(c *cobra.Command, initial string) (string, error) {
 				buffer = buffer[:len(buffer)-1]
 				fmt.Fprint(out, "\b \b")
 			}
+		case githubkeyboard.KeyCtrlU, githubkeyboard.KeyCtrlW:
+			handleEditingControl(out, key, &buffer)
+			continue
 		default:
 			if isPrintable(char) {
 				buffer = append(buffer, char)
@@ -239,4 +307,77 @@ func promptForText(c *cobra.Command, initial string) (string, error) {
 
 func isPrintable(r rune) bool {
 	return r >= 32 && r != 127
+}
+
+func promptForSearch(c *cobra.Command, initial string, reverse bool) (string, error) {
+	direction := "Forward"
+	if reverse {
+		direction = "Backward"
+	}
+	out := c.OutOrStdout()
+	fmt.Fprintf(out, "\n%s search (ESC to cancel) [%s]: ", direction, initial)
+	buffer := []rune(initial)
+	fmt.Fprint(out, initial)
+	for {
+		char, key, err := githubkeyboard.GetKey()
+		if err != nil {
+			return "", err
+		}
+		switch key {
+		case githubkeyboard.KeyEsc:
+			fmt.Fprintln(out)
+			return "", errPromptCanceled
+		case githubkeyboard.KeyEnter:
+			fmt.Fprintln(out)
+			return string(buffer), nil
+		case githubkeyboard.KeyBackspace, githubkeyboard.KeyBackspace2:
+			if len(buffer) > 0 {
+				buffer = buffer[:len(buffer)-1]
+				fmt.Fprint(out, "\b \b")
+			}
+		case githubkeyboard.KeyCtrlU, githubkeyboard.KeyCtrlW:
+			handleEditingControl(out, key, &buffer)
+			continue
+		default:
+			if isPrintable(char) {
+				buffer = append(buffer, char)
+				fmt.Fprint(out, string(char))
+			}
+		}
+	}
+}
+
+func handleEditingControl(out io.Writer, key githubkeyboard.Key, buffer *[]rune) {
+	switch key {
+	case githubkeyboard.KeyCtrlU:
+		removed := len(*buffer)
+		*buffer = (*buffer)[:0]
+		eraseChars(out, removed)
+	case githubkeyboard.KeyCtrlW:
+		removed := deleteTrailingWord(buffer)
+		eraseChars(out, removed)
+	}
+}
+
+func deleteTrailingWord(buffer *[]rune) int {
+	b := *buffer
+	if len(b) == 0 {
+		return 0
+	}
+	i := len(b)
+	for i > 0 && unicode.IsSpace(b[i-1]) {
+		i--
+	}
+	for i > 0 && !unicode.IsSpace(b[i-1]) {
+		i--
+	}
+	removed := len(b) - i
+	*buffer = b[:i]
+	return removed
+}
+
+func eraseChars(out io.Writer, count int) {
+	for i := 0; i < count; i++ {
+		fmt.Fprint(out, "\b \b")
+	}
 }

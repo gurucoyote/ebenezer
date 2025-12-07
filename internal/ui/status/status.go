@@ -12,5 +12,9 @@ func Print(w io.Writer, state *app.State) {
 	if state == nil || w == nil {
 		return
 	}
-	fmt.Fprintf(w, "%s | %s\n", state.Address(), state.CurrentValue())
+	message := fmt.Sprintf("%s | %s", state.Address(), state.CurrentValue())
+	if summary := state.SelectionSummary(); summary != "" {
+		message = fmt.Sprintf("%s | VISUAL %s", message, summary)
+	}
+	fmt.Fprintln(w, message)
 }

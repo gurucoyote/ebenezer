@@ -92,7 +92,7 @@ func TestEditAndClipboard(t *testing.T) {
 func TestRowOperations(t *testing.T) {
 	st := NewState()
 	st.YankCurrentRow()
-	if st.Clipboard.Kind != ClipboardRow || len(st.Clipboard.RowValues) == 0 {
+	if st.Clipboard.Kind != ClipboardRow || len(st.Clipboard.Rows) == 0 {
 		t.Fatalf("expected row clipboard, got %+v", st.Clipboard)
 	}
 	st.CutCurrentRow()
@@ -116,6 +116,150 @@ func TestRowOperations(t *testing.T) {
 	rows, _ = st.Workbook.MaxCoords()
 	if rows != 5 {
 		t.Fatalf("expected row deletion to reduce count")
+	}
+}
+
+func TestSelectionRangeClipboard(t *testing.T) {
+	st := NewState()
+	if err := st.Goto("A2"); err != nil {
+		t.Fatalf("goto failed: %v", err)
+	}
+	st.BeginSelection(SelectionRange)
+	st.Move(1, 1) // select A2:B3
+	st.YankCurrentCell()
+	if st.Clipboard.Kind != ClipboardRange {
+		t.Fatalf("expected range clipboard, got %+v", st.Clipboard)
+	}
+	if len(st.Clipboard.RangeValues) != 2 || len(st.Clipboard.RangeValues[0]) != 2 {
+		t.Fatalf("expected 2x2 range, got %+v", st.Clipboard.RangeValues)
+	}
+	if err := st.Goto("C4"); err != nil {
+		t.Fatalf("goto failed: %v", err)
+	}
+	if err := st.PasteClipboard(false); err != nil {
+		t.Fatalf("range paste failed: %v", err)
+	}
+	if got := st.Workbook.Cell(4, 3); got != "Foam" {
+		t.Fatalf("expected pasted Foam at C4, got %s", got)
+	}
+	if got := st.Workbook.Cell(5, 4); got != "5" {
+		t.Fatalf("expected pasted 5 at D5, got %s", got)
+	}
+}
+
+func TestSelectionRowCutPaste(t *testing.T) {
+	st := NewState()
+	if err := st.Goto("A2"); err != nil {
+		t.Fatalf("goto failed: %v", err)
+	}
+	st.BeginSelection(SelectionRow)
+	st.Move(1, 0) // rows 2-3
+	st.CutCurrentCell()
+	if st.Clipboard.Kind != ClipboardRow || len(st.Clipboard.Rows) != 2 {
+		t.Fatalf("expected two rows in clipboard, got %+v", st.Clipboard)
+	}
+	rows, _ := st.Workbook.MaxCoords()
+	if rows != 3 {
+		t.Fatalf("expected 3 rows after cutting two, got %d", rows)
+	}
+	if err := st.Goto("A2"); err != nil {
+		t.Fatalf("goto failed: %v", err)
+	}
+	if err := st.PasteClipboard(false); err != nil {
+		t.Fatalf("row paste failed: %v", err)
+	}
+	rows, _ = st.Workbook.MaxCoords()
+	if rows != 5 {
+		t.Fatalf("expected 5 rows after pasting back, got %d", rows)
+	}
+}
+
+func TestSelectionSummary(t *testing.T) {
+	st := NewState()
+	st.BeginSelection(SelectionRange)
+	st.Move(2, 1)
+	if summary := st.SelectionSummary(); summary != "A1:B3 (3x2)" {
+		t.Fatalf("unexpected summary for range: %s", summary)
+	}
+	st.ClearSelection()
+	st.Goto("A2")
+	st.BeginSelection(SelectionRow)
+	st.Move(2, 0)
+	if summary := st.SelectionSummary(); summary != "rows 2-4" {
+		t.Fatalf("unexpected summary for rows: %s", summary)
+	}
+}
+
+func TestPasteCellIntoSelection(t *testing.T) {
+	st := NewState()
+	st.Clipboard = Clipboard{Kind: ClipboardCell, CellValue: "X"}
+	st.BeginSelection(SelectionRange)
+	st.Move(1, 1)
+	if err := st.PasteClipboard(false); err != nil {
+		t.Fatalf("paste into selection failed: %v", err)
+	}
+	if got := st.Workbook.Cell(1, 1); got != "X" {
+		t.Fatalf("expected A1 to be X, got %s", got)
+	}
+	if got := st.Workbook.Cell(2, 2); got != "X" {
+		t.Fatalf("expected B2 to be X, got %s", got)
+	}
+}
+
+func TestSearchForwardAndBackward(t *testing.T) {
+	st := NewState()
+	if err := st.Search("Foam", true); err != nil {
+		t.Fatalf("forward search failed: %v", err)
+	}
+	if got := st.Address(); got != "A2" {
+		t.Fatalf("expected search to land on A2, got %s", got)
+	}
+	// Backward search should wrap and find the header row via '?'
+	if err := st.Search("Item", false); err != nil {
+		t.Fatalf("reverse search failed: %v", err)
+	}
+	if got := st.Address(); got != "A1" {
+		t.Fatalf("expected reverse search to land on A1, got %s", got)
+	}
+}
+
+func TestSearchRepeat(t *testing.T) {
+	st := NewState()
+	if err := st.Search("$", true); err != nil {
+		t.Fatalf("initial search failed: %v", err)
+	}
+	first := st.Address()
+	if err := st.RepeatSearch(true); err != nil {
+		t.Fatalf("repeat search (n) failed: %v", err)
+	}
+	second := st.Address()
+	if first == second {
+		t.Fatalf("repeat should move to next match")
+	}
+	if err := st.RepeatSearch(false); err != nil {
+		t.Fatalf("reverse repeat (N) failed: %v", err)
+	}
+	if current := st.Address(); current != first {
+		t.Fatalf("expected to return to previous match, got %s", current)
+	}
+	st.ClearSelection()
+	st.lastSearchQuery = ""
+	if err := st.RepeatSearch(true); err == nil {
+		t.Fatalf("expected error when no previous search")
+	}
+}
+
+func TestSearchCaseSensitivity(t *testing.T) {
+	st := NewState()
+	if err := st.Search("foam", true); err != nil {
+		t.Fatalf("case-insensitive search should find result: %v", err)
+	}
+	st.SetSearchCaseSensitivity(true)
+	if err := st.Search("foam", true); err == nil {
+		t.Fatalf("case-sensitive search should fail for lowercase query")
+	}
+	if err := st.Search("Foam", true); err != nil {
+		t.Fatalf("case-sensitive search should find exact case: %v", err)
 	}
 }
 
