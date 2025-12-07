@@ -31,6 +31,7 @@ go build ./cmd/ebenezer
 :open js/test.xlsx    # load the sample XLSX (use --sheet NAME as needed)
 :ps                   # list sheets
 :ps Sheet2            # switch to Sheet2 (requires a file-backed workbook)
+:ns ReportCopy Budget # clone Budget sheet into ReportCopy (xlsx only)
 :style B5             # describe formatting of B5 (fill/font/bold/italic)
 :colheader            # print the header of the current column (row 1)
 :rowheader            # print the header of the current row (column 1)

@@ -116,3 +116,31 @@ func TestSaveCSV(t *testing.T) {
 		t.Fatalf("unexpected csv contents: %s", got)
 	}
 }
+
+func TestAddSheet(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "book.xlsx")
+	wb := SampleWorkbook()
+	if err := wb.Save(path); err != nil {
+		t.Fatalf("initial save failed: %v", err)
+	}
+	if err := AddSheet(path, "CopySheet", "Sheet1"); err != nil {
+		t.Fatalf("copy sheet failed: %v", err)
+	}
+	if err := AddSheet(path, "BlankSheet", ""); err != nil {
+		t.Fatalf("blank sheet failed: %v", err)
+	}
+	_, sheets, _, err := FromXLSX(path, "CopySheet")
+	if err != nil {
+		t.Fatalf("reload failed: %v", err)
+	}
+	found := 0
+	for _, s := range sheets {
+		if s == "CopySheet" || s == "BlankSheet" {
+			found++
+		}
+	}
+	if found != 2 {
+		t.Fatalf("expected new sheets in workbook, got %v", sheets)
+	}
+}

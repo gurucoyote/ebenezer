@@ -2,6 +2,7 @@ package workbook
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	excelize "github.com/xuri/excelize/v2"
@@ -95,4 +96,66 @@ func defaultColor(hex string) string {
 		return hex
 	}
 	return "#" + hex
+}
+
+// AddSheet creates a new sheet (blank or copied) inside an existing XLSX file.
+func AddSheet(path, newName, copyFrom string) error {
+	if strings.ToLower(filepath.Ext(path)) != ".xlsx" {
+		return fmt.Errorf("sheet creation is only supported for .xlsx files")
+	}
+	if strings.TrimSpace(newName) == "" {
+		return fmt.Errorf("sheet name is required")
+	}
+	f, err := excelize.OpenFile(path)
+	if err != nil {
+		return fmt.Errorf("open xlsx: %w", err)
+	}
+	defer f.Close()
+
+	if sheetIndexCaseInsensitive(f, newName) >= 0 {
+		return fmt.Errorf("sheet %s already exists", newName)
+	}
+
+	var targetIdx int
+	trimCopy := strings.TrimSpace(copyFrom)
+	if trimCopy != "" {
+		sourceIdx := sheetIndexCaseInsensitive(f, trimCopy)
+		if sourceIdx < 0 {
+			return fmt.Errorf("source sheet %s not found", trimCopy)
+		}
+		targetIdx, err = f.NewSheet(newName)
+		if err != nil {
+			return fmt.Errorf("create sheet: %w", err)
+		}
+		if err := f.CopySheet(sourceIdx, targetIdx); err != nil {
+			return fmt.Errorf("copy sheet: %w", err)
+		}
+	} else {
+		targetIdx, err = f.NewSheet(newName)
+		if err != nil {
+			return fmt.Errorf("create sheet: %w", err)
+		}
+	}
+
+	f.SetActiveSheet(targetIdx)
+	if err := f.Save(); err != nil {
+		return fmt.Errorf("save workbook: %w", err)
+	}
+	return nil
+}
+
+func sheetIndexCaseInsensitive(f *excelize.File, name string) int {
+	if strings.TrimSpace(name) == "" {
+		return -1
+	}
+	for _, sheet := range f.GetSheetList() {
+		if strings.EqualFold(sheet, name) {
+			idx, err := f.GetSheetIndex(sheet)
+			if err != nil {
+				return -1
+			}
+			return idx
+		}
+	}
+	return -1
 }

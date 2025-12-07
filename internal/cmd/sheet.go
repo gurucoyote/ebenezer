@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"ebenezer/internal/workbook"
@@ -20,8 +21,21 @@ var sheetSelectCmd = &cobra.Command{
 	},
 }
 
+var sheetNewCmd = &cobra.Command{
+	Use:   "ns <name> [copy-from]",
+	Short: "Create a new sheet (optionally by copying an existing one)",
+	Args:  cobra.MinimumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return createSheet(cmd, args)
+	},
+}
+
 func init() {
-	rootCmd.AddCommand(sheetSelectCmd)
+	rootCmd.AddCommand(sheetSelectCmd, sheetNewCmd)
+}
+
+func init() {
+	sheetNewCmd.Flags().String("copy", "", "Copy contents from existing sheet")
 }
 
 func listSheets(cmd *cobra.Command) error {
@@ -53,5 +67,26 @@ func switchSheet(cmd *cobra.Command, sheet string) error {
 	}
 	appState.LoadWorkbook(wb, appState.SourcePath, sheets, active)
 	fmt.Fprintf(cmd.OutOrStdout(), "switched to sheet %s\n", wb.Sheet)
+	return nil
+}
+
+func createSheet(cmd *cobra.Command, args []string) error {
+	if appState.SourcePath == "" || strings.ToLower(filepath.Ext(appState.SourcePath)) != ".xlsx" {
+		return errors.New("sheet creation requires an .xlsx file saved on disk")
+	}
+	name := args[0]
+	copyFrom, _ := cmd.Flags().GetString("copy")
+	if copyFrom == "" && len(args) > 1 {
+		copyFrom = args[1]
+	}
+	if err := workbook.AddSheet(appState.SourcePath, name, copyFrom); err != nil {
+		return err
+	}
+	wb, sheets, active, err := workbook.FromFile(appState.SourcePath, name)
+	if err != nil {
+		return err
+	}
+	appState.LoadWorkbook(wb, appState.SourcePath, sheets, active)
+	fmt.Fprintf(cmd.OutOrStdout(), "created sheet %s\n", name)
 	return nil
 }
