@@ -56,6 +56,8 @@ func runKeyboardMode(c *cobra.Command) error {
 					return nil
 				},
 				'g': gotoShortcut(c),
+				'c': columnHeaderShortcut(),
+				'r': rowHeaderShortcut(),
 			},
 		},
 	}
@@ -128,4 +130,38 @@ func promptForAddress(c *cobra.Command) (string, error) {
 			}
 		}
 	}
+}
+
+func columnHeaderShortcut() keyboard.Action {
+	return func(ctx *keyboard.Context) error {
+		match, err := expectNextRune('t')
+		if err != nil {
+			return err
+		}
+		if !match {
+			return nil
+		}
+		return ctx.Executor.ExecuteCommand([]string{"colheader"})
+	}
+}
+
+func rowHeaderShortcut() keyboard.Action {
+	return func(ctx *keyboard.Context) error {
+		match, err := expectNextRune('t')
+		if err != nil {
+			return err
+		}
+		if !match {
+			return nil
+		}
+		return ctx.Executor.ExecuteCommand([]string{"rowheader"})
+	}
+}
+
+func expectNextRune(target rune) (bool, error) {
+	char, _, err := githubkeyboard.GetKey()
+	if err != nil {
+		return false, err
+	}
+	return unicode.ToLower(char) == unicode.ToLower(target), nil
 }
