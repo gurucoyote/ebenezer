@@ -37,6 +37,7 @@ Key workflows:
 - `ct`/`rt` read header cell (row 1, current column) or first column of current row.
 
 - `ps`: prompt with sheet list, switch when valid choice made, and allow `ps <name>` for non-interactive environments. Sheet list should be sourced from the current workbook and highlight the active sheet.
+- `ns`: prompt for new sheet name, validate uniqueness, create sheet, and switch focus. Support cloning an existing sheet (e.g., `ns BudgetCopy Budget` duplicates Budget into BudgetCopy).
 - `wb`: save workbook; prompt with filename history, support `.xlsx` and `.csv` (sheet-scoped writer). Support `w` (save) and `w <filename>`/`w!` (save-as/overwrite) Vim-style aliases that mirror Cobra commands `save`/`saveas`.
 - `:` (stretch goal) open Go REPL or Lua-like scripting environment (optional for parity).
 
