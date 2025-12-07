@@ -34,6 +34,8 @@ go build ./cmd/ebenezer
 :style B5             # describe formatting of B5 (fill/font/bold/italic)
 :colheader            # print the header of the current column (row 1)
 :rowheader            # print the header of the current row (column 1)
+:save                 # write to the current filename (or error if none)
+:saveas report.xlsx   # save-as; respects overwrite confirmations
 :sample               # reload built-in sample workbook
 ```
 

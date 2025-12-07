@@ -12,10 +12,11 @@ import (
 
 // Workbook is a minimal in-memory representation for demo purposes.
 type Workbook struct {
-	Cells  [][]string
-	Name   string
-	Sheet  string
-	Styles map[string]CellStyle
+	Cells      [][]string
+	Name       string
+	Sheet      string
+	Styles     map[string]CellStyle
+	ActiveCell string
 }
 
 // SampleWorkbook seeds demo data without hitting the filesystem.
@@ -27,7 +28,7 @@ func SampleWorkbook() *Workbook {
 		{"Ink", "1", "$42"},
 		{"Total", "8", "$64"},
 	}
-	return &Workbook{Cells: cells, Name: "sample", Sheet: "Sheet1", Styles: map[string]CellStyle{}}
+	return &Workbook{Cells: cells, Name: "sample", Sheet: "Sheet1", Styles: map[string]CellStyle{}, ActiveCell: "A1"}
 }
 
 // FromFile loads either CSV or XLSX data into a Workbook and returns the sheet
@@ -44,6 +45,23 @@ func FromFile(path, sheet string) (*Workbook, []string, string, error) {
 		return FromXLSX(path, sheet)
 	default:
 		return nil, nil, "", fmt.Errorf("unsupported extension %s", filepath.Ext(path))
+	}
+}
+
+// Save writes the workbook back to the given path, choosing CSV or XLSX based
+// on extension.
+func (w *Workbook) Save(path string) error {
+	if w == nil {
+		return fmt.Errorf("no workbook data to save")
+	}
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".csv":
+		return w.saveCSV(path)
+	case ".xlsx":
+		return w.saveXLSX(path)
+	default:
+		return fmt.Errorf("unsupported extension %s", ext)
 	}
 }
 
@@ -67,7 +85,25 @@ func FromCSV(path string) (*Workbook, error) {
 		}
 		rows = append(rows, record)
 	}
-	return &Workbook{Cells: rows, Name: path, Sheet: "Sheet1", Styles: map[string]CellStyle{}}, nil
+	return &Workbook{Cells: rows, Name: path, Sheet: "Sheet1", Styles: map[string]CellStyle{}, ActiveCell: "A1"}, nil
+}
+
+func (w *Workbook) saveCSV(path string) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("create csv: %w", err)
+	}
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	for _, row := range w.Cells {
+		if err := writer.Write(row); err != nil {
+			return fmt.Errorf("write csv: %w", err)
+		}
+	}
+	return writer.Error()
 }
 
 // Style returns style information for the given cell address (e.g., "B2").

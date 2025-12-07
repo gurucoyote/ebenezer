@@ -3,6 +3,7 @@ package workbook
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -79,6 +80,7 @@ func TestInsertDeleteRow(t *testing.T) {
 	wb := &Workbook{
 		Cells:  [][]string{{"a", "b"}, {"c", "d"}},
 		Styles: map[string]CellStyle{"A1": {Bold: true}, "B2": {Italic: true}},
+		Sheet:  "Sheet1",
 	}
 	wb.InsertRow(2, []string{"x", "y"})
 	if val := wb.Cell(2, 1); val != "x" {
@@ -93,5 +95,24 @@ func TestInsertDeleteRow(t *testing.T) {
 	}
 	if _, ok := wb.Styles["B2"]; !ok {
 		t.Fatalf("expected shifted style to move back after delete")
+	}
+}
+
+func TestSaveCSV(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.csv")
+	wb := &Workbook{
+		Cells: [][]string{{"a", "b"}, {"c", "d"}},
+		Sheet: "Sheet1",
+	}
+	if err := wb.Save(path); err != nil {
+		t.Fatalf("save csv failed: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read csv: %v", err)
+	}
+	if got := string(data); !strings.Contains(got, "a,b") {
+		t.Fatalf("unexpected csv contents: %s", got)
 	}
 }

@@ -57,6 +57,12 @@ func FromXLSX(path, sheet string) (*Workbook, []string, string, error) {
 		Name:   path,
 		Sheet:  sheetName,
 		Styles: styles,
+		ActiveCell: func() string {
+			if activeCell != "" {
+				return activeCell
+			}
+			return "A1"
+		}(),
 	}, sheets, activeCell, nil
 }
 

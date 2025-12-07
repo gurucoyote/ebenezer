@@ -60,11 +60,11 @@ func (s *State) LoadWorkbook(wb *workbook.Workbook, path string, sheets []string
 	s.SheetNames = append([]string(nil), sheets...)
 	s.Cursor = Cursor{Row: 1, Col: 1}
 	s.Clipboard = Clipboard{}
-	if activeCell != "" {
-		if err := s.Goto(activeCell); err == nil {
-			return
-		}
+	s.Workbook.ActiveCell = activeCell
+	if activeCell != "" && s.Goto(activeCell) == nil {
+		return
 	}
+	s.updateActiveCell()
 }
 
 // Move adjusts the cursor, clamping to valid coordinates.
@@ -89,6 +89,7 @@ func (s *State) Move(deltaRow, deltaCol int) {
 	if maxCol > 0 && s.Cursor.Col > maxCol {
 		s.Cursor.Col = maxCol
 	}
+	s.updateActiveCell()
 }
 
 // CurrentValue returns the cell value at the cursor.
@@ -141,6 +142,7 @@ func (s *State) Goto(address string) error {
 		col = maxCol
 	}
 	s.Cursor = Cursor{Row: row, Col: col}
+	s.updateActiveCell()
 	return nil
 }
 
@@ -156,12 +158,33 @@ func (s *State) StyleAt(address string) (workbook.CellStyle, bool) {
 	return s.Workbook.Style(address)
 }
 
+// Save writes the workbook to disk.
+func (s *State) Save(path string) error {
+	if s.Workbook == nil {
+		return errors.New("no workbook loaded")
+	}
+	if strings.TrimSpace(path) == "" {
+		return errors.New("filename required")
+	}
+	s.updateActiveCell()
+	if err := s.Workbook.Save(path); err != nil {
+		return err
+	}
+	s.SourcePath = path
+	s.Workbook.Name = path
+	if len(s.SheetNames) == 0 {
+		s.SheetNames = []string{s.Workbook.Sheet}
+	}
+	return nil
+}
+
 // EditCurrentCell sets the current cell to the provided value.
 func (s *State) EditCurrentCell(value string) {
 	if s.Workbook == nil {
 		return
 	}
 	s.Workbook.SetCell(s.Cursor.Row, s.Cursor.Col, value)
+	s.updateActiveCell()
 }
 
 // ClearCurrentCell blanks the current cell.
@@ -170,6 +193,7 @@ func (s *State) ClearCurrentCell() {
 		return
 	}
 	s.Workbook.ClearCell(s.Cursor.Row, s.Cursor.Col)
+	s.updateActiveCell()
 }
 
 // YankCurrentCell copies the current cell into the clipboard without mutation.
@@ -256,6 +280,7 @@ func (s *State) deleteRow(idx int) {
 	} else if s.Cursor.Row > maxRow {
 		s.Cursor.Row = maxRow
 	}
+	s.updateActiveCell()
 }
 
 // InsertRowAbove inserts a blank row before the cursor.
@@ -264,6 +289,7 @@ func (s *State) InsertRowAbove() {
 		return
 	}
 	s.Workbook.InsertRow(s.Cursor.Row, nil)
+	s.updateActiveCell()
 }
 
 // InsertRowBelow inserts a blank row after the cursor.
@@ -272,6 +298,7 @@ func (s *State) InsertRowBelow() {
 		return
 	}
 	s.Workbook.InsertRow(s.Cursor.Row+1, nil)
+	s.updateActiveCell()
 }
 
 func (s *State) collectRowStyles(row int) map[int]workbook.CellStyle {
@@ -328,4 +355,11 @@ func lettersToNumber(s string) int {
 		result = result*26 + int(r-'A'+1)
 	}
 	return result
+}
+
+func (s *State) updateActiveCell() {
+	if s.Workbook == nil {
+		return
+	}
+	s.Workbook.ActiveCell = s.Address()
 }
