@@ -28,7 +28,7 @@ While in keyboard mode:
 - `Y` yanks the current row, `X` cuts it, `D` deletes it, `O/o` insert blank rows above/below.
 - `:style` describes the formatting of the current (or specified) cell.
 - `:ps` lists sheets; `:ps Sheet2` switches sheets (only for workbooks opened from disk).
-- `:` enters command mode—run commands like `status`, `open js/test.xlsx --sheet Sheet1`, `colheader`, `rowheader`, `sample`, `style B3`, `ps`, `ns ReportCopy Budget`, `save`, `saveas report.xlsx`.
+- `:` enters command mode—run commands like `status`, `open js/test.xlsx --sheet Sheet1`, `colheader`, `rowheader`, `sample`, `style B3`, `ps`, `ns ReportCopy Budget`, `style-copy A1:B2`, `style-paste C3:D4`, `save`, `saveas report.xlsx`.
 - `q` exits keyboard mode.
 
 ## Roadmap Highlights

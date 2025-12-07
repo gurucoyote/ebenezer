@@ -27,5 +27,43 @@ var styleCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(styleCmd)
+	rootCmd.AddCommand(styleCmd, styleCopyCmd, stylePasteCmd)
+}
+
+var styleCopyCmd = &cobra.Command{
+	Use:   "style-copy [range]",
+	Short: "Copy formatting from a cell or range",
+	Args:  cobra.MaximumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		target := ""
+		if len(args) > 0 {
+			target = args[0]
+		} else {
+			target = appState.Address()
+		}
+		if err := appState.CopyStyle(target); err != nil {
+			return err
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "style copied from %s\n", strings.ToUpper(target))
+		return nil
+	},
+}
+
+var stylePasteCmd = &cobra.Command{
+	Use:   "style-paste [range]",
+	Short: "Paste formatting into a cell or range",
+	Args:  cobra.MaximumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		target := ""
+		if len(args) > 0 {
+			target = args[0]
+		} else {
+			target = appState.Address()
+		}
+		if err := appState.PasteStyle(target); err != nil {
+			return err
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "style pasted into %s\n", strings.ToUpper(target))
+		return nil
+	},
 }

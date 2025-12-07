@@ -118,3 +118,46 @@ func TestRowOperations(t *testing.T) {
 		t.Fatalf("expected row deletion to reduce count")
 	}
 }
+
+func TestStyleCopyPaste(t *testing.T) {
+	wb := &workbook.Workbook{
+		Cells: [][]string{
+			{"A1", "B1"},
+			{"A2", "B2"},
+		},
+		Sheet: "Sheet1",
+		Styles: map[string]workbook.CellStyle{
+			"A1": {Bold: true},
+			"B1": {Italic: true},
+		},
+	}
+	st := &State{
+		Workbook: wb,
+		Cursor:   Cursor{Row: 1, Col: 1},
+	}
+	if err := st.CopyStyle("A1:B1"); err != nil {
+		t.Fatalf("copy style failed: %v", err)
+	}
+	if st.StyleClipboard.Width != 2 || st.StyleClipboard.Height != 1 {
+		t.Fatalf("clipboard dimensions incorrect: %+v", st.StyleClipboard)
+	}
+	if err := st.PasteStyle("A2:B2"); err != nil {
+		t.Fatalf("paste style failed: %v", err)
+	}
+	if style, ok := wb.Style("A2"); !ok || !style.Bold {
+		t.Fatalf("expected bold style on A2")
+	}
+	if style, ok := wb.Style("B2"); !ok || !style.Italic {
+		t.Fatalf("expected italic style on B2")
+	}
+	// Paste single-cell style across range
+	if err := st.CopyStyle("A1"); err != nil {
+		t.Fatalf("copy single style failed: %v", err)
+	}
+	if err := st.PasteStyle("A2:B2"); err != nil {
+		t.Fatalf("paste single style to range failed: %v", err)
+	}
+	if style, ok := wb.Style("B2"); !ok || !style.Bold {
+		t.Fatalf("expected bold style replicated on B2")
+	}
+}

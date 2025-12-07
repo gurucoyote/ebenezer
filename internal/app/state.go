@@ -18,11 +18,12 @@ type Cursor struct {
 
 // State captures the high-level CLI session data.
 type State struct {
-	Workbook   *workbook.Workbook
-	Cursor     Cursor
-	Clipboard  Clipboard
-	SourcePath string
-	SheetNames []string
+	Workbook       *workbook.Workbook
+	Cursor         Cursor
+	Clipboard      Clipboard
+	StyleClipboard StyleClipboard
+	SourcePath     string
+	SheetNames     []string
 }
 
 // ClipboardKind describes the type stored in the clipboard.
@@ -40,6 +41,12 @@ type Clipboard struct {
 	CellValue string
 	RowValues []string
 	RowStyles map[int]workbook.CellStyle
+}
+
+type StyleClipboard struct {
+	Width  int
+	Height int
+	Styles []workbook.CellStyle
 }
 
 // NewState initializes with sample workbook so the demo has data.
@@ -60,6 +67,7 @@ func (s *State) LoadWorkbook(wb *workbook.Workbook, path string, sheets []string
 	s.SheetNames = append([]string(nil), sheets...)
 	s.Cursor = Cursor{Row: 1, Col: 1}
 	s.Clipboard = Clipboard{}
+	s.StyleClipboard = StyleClipboard{}
 	s.Workbook.ActiveCell = activeCell
 	if activeCell != "" && s.Goto(activeCell) == nil {
 		return
@@ -362,4 +370,104 @@ func (s *State) updateActiveCell() {
 		return
 	}
 	s.Workbook.ActiveCell = s.Address()
+}
+
+// CopyStyle copies formatting from the provided range (defaults to current cell).
+func (s *State) CopyStyle(rangeStr string) error {
+	if s.Workbook == nil {
+		return errors.New("no workbook loaded")
+	}
+	startRow, startCol, endRow, endCol, err := parseRangeOrDefault(rangeStr, s.Address())
+	if err != nil {
+		return err
+	}
+	var styles []workbook.CellStyle
+	for r := startRow; r <= endRow; r++ {
+		for c := startCol; c <= endCol; c++ {
+			addr := fmt.Sprintf("%s%d", workbook.ColumnName(c), r)
+			style, ok := s.Workbook.Style(addr)
+			if !ok {
+				style = workbook.CellStyle{}
+			}
+			styles = append(styles, style)
+		}
+	}
+	s.StyleClipboard = StyleClipboard{
+		Width:  endCol - startCol + 1,
+		Height: endRow - startRow + 1,
+		Styles: styles,
+	}
+	return nil
+}
+
+// PasteStyle applies copied formatting to the provided range (defaults to current cell).
+func (s *State) PasteStyle(rangeStr string) error {
+	if s.Workbook == nil {
+		return errors.New("no workbook loaded")
+	}
+	if len(s.StyleClipboard.Styles) == 0 {
+		return errors.New("style clipboard empty")
+	}
+	startRow, startCol, endRow, endCol, err := parseRangeOrDefault(rangeStr, s.Address())
+	if err != nil {
+		return err
+	}
+	destWidth := endCol - startCol + 1
+	destHeight := endRow - startRow + 1
+
+	switch {
+	case s.StyleClipboard.Width == 1 && s.StyleClipboard.Height == 1:
+		style := s.StyleClipboard.Styles[0]
+		for r := startRow; r <= endRow; r++ {
+			for c := startCol; c <= endCol; c++ {
+				s.Workbook.SetStyle(r, c, style)
+			}
+		}
+	case s.StyleClipboard.Width == destWidth && s.StyleClipboard.Height == destHeight:
+		idx := 0
+		for r := startRow; r <= endRow; r++ {
+			for c := startCol; c <= endCol; c++ {
+				s.Workbook.SetStyle(r, c, s.StyleClipboard.Styles[idx])
+				idx++
+			}
+		}
+	default:
+		return errors.New("destination range size must match copied style range")
+	}
+	return nil
+}
+
+func parseRangeOrDefault(rangeStr, fallback string) (int, int, int, int, error) {
+	input := strings.TrimSpace(rangeStr)
+	if input == "" {
+		input = fallback
+	}
+	return parseRange(input)
+}
+
+func parseRange(rangeStr string) (int, int, int, int, error) {
+	parts := strings.Split(rangeStr, ":")
+	if len(parts) > 2 {
+		return 0, 0, 0, 0, fmt.Errorf("invalid range %s", rangeStr)
+	}
+	startAddr := strings.TrimSpace(parts[0])
+	startRow, startCol, err := parseAddress(startAddr)
+	if err != nil {
+		return 0, 0, 0, 0, err
+	}
+	endRow, endCol := startRow, startCol
+	if len(parts) == 2 {
+		endAddr := strings.TrimSpace(parts[1])
+		endRow, endCol, err = parseAddress(endAddr)
+		if err != nil {
+			return 0, 0, 0, 0, err
+		}
+	}
+	if startRow > endRow {
+		startRow, endRow = endRow, startRow
+	}
+	if startCol > endCol {
+		startCol, endCol = endCol, startCol
+	}
+	return startRow, startCol, endRow, endCol, nil
 }

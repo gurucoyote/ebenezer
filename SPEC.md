@@ -55,6 +55,7 @@ Key workflows:
 - Provide read-only inspection tools to analyze styling, so users can understand visual coding conventions (e.g., red backgrounds for TODOs, italics for comments). Expose commands such as `style describe <range>` or `style search --fill=red` that surface font, fill, border, conditional format metadata without modifying the workbook.
 - Style descriptions must default to human-readable color/format labels (e.g., “red fill,” “light green background,” “italic font”), while still offering raw RGB/ARGB codes as optional detail for scripting use.
 - When loading an existing `.xlsx`, default the active cursor to the workbook’s last selected cell (Excel’s “last edit position”) whenever that metadata exists; fall back to `A1` otherwise. Persist active-cell changes when saving back so Excel reopens at the user’s last location.
+- Add `style copy [range]` / `style paste [range]` commands (and keyboard shortcuts) that copy formatting from a cell/range and apply it to another cell/range, mirroring Excel’s Format Painter behavior. Support rectangular ranges; when sizes differ, pasting a single-source style should fill any destination range.
 
 ### 3.7 Column Search & History
 - Maintain last-search string and revisit via `fi` prompt history.

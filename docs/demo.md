@@ -33,6 +33,8 @@ go build ./cmd/ebenezer
 :ps Sheet2            # switch to Sheet2 (requires a file-backed workbook)
 :ns ReportCopy Budget # clone Budget sheet into ReportCopy (xlsx only)
 :style B5             # describe formatting of B5 (fill/font/bold/italic)
+:style-copy A1:B2     # copy formatting from a range
+:style-paste C3:D4    # paste formatting to a destination range
 :colheader            # print the header of the current column (row 1)
 :rowheader            # print the header of the current row (column 1)
 :save                 # write to the current filename (or error if none)
