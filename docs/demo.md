@@ -19,6 +19,7 @@ go build ./cmd/ebenezer
 - `g`: prompt for a cell address (defaulting to the current cell) and jump there.
 - `s`: print the current cell status.
 - `c` then `t`: print the current column header (row 1); `r` then `t`: print the current row header (column 1).
+- `i`: edit the current cell value; `y` yanks, `x` cuts, `p` pastes, `d` `c` clears the cell.
 - `:`: enter command mode (type commands such as `status`, `open test.csv`, `sample`).
 - `q`: exit keyboard mode.
 

@@ -47,10 +47,7 @@ func runKeyboardMode(c *cobra.Command) error {
 				githubkeyboard.KeyArrowDown:  moveAction("down"),
 			},
 			Runes: map[rune]keyboard.Action{
-				'i': func(ctx *keyboard.Context) error {
-					fmt.Fprintln(c.OutOrStdout(), "entering insert mode placeholder")
-					return nil
-				},
+				'i': insertShortcut(c),
 				's': func(ctx *keyboard.Context) error {
 					status.Print(c.OutOrStdout(), appState)
 					return nil
@@ -58,6 +55,10 @@ func runKeyboardMode(c *cobra.Command) error {
 				'g': gotoShortcut(c),
 				'c': columnHeaderShortcut(),
 				'r': rowHeaderShortcut(),
+				'y': simpleCommand("yank"),
+				'x': simpleCommand("cut"),
+				'p': simpleCommand("paste"),
+				'd': deleteCellShortcut(),
 			},
 		},
 	}
@@ -164,4 +165,71 @@ func expectNextRune(target rune) (bool, error) {
 		return false, err
 	}
 	return unicode.ToLower(char) == unicode.ToLower(target), nil
+}
+
+func insertShortcut(c *cobra.Command) keyboard.Action {
+	return func(ctx *keyboard.Context) error {
+		value, err := promptForText(c, appState.CurrentValue())
+		if err != nil {
+			if errors.Is(err, errPromptCanceled) {
+				return nil
+			}
+			return err
+		}
+		return ctx.Executor.ExecuteCommand([]string{"edit", value})
+	}
+}
+
+func deleteCellShortcut() keyboard.Action {
+	return func(ctx *keyboard.Context) error {
+		match, err := expectNextRune('c')
+		if err != nil {
+			return err
+		}
+		if !match {
+			return nil
+		}
+		return ctx.Executor.ExecuteCommand([]string{"clear"})
+	}
+}
+
+func simpleCommand(name string) keyboard.Action {
+	return func(ctx *keyboard.Context) error {
+		return ctx.Executor.ExecuteCommand([]string{name})
+	}
+}
+
+func promptForText(c *cobra.Command, initial string) (string, error) {
+	out := c.OutOrStdout()
+	fmt.Fprintf(out, "\nEnter value (ESC to cancel) [%s]: ", initial)
+	buffer := []rune(initial)
+	fmt.Fprint(out, initial)
+	for {
+		char, key, err := githubkeyboard.GetKey()
+		if err != nil {
+			return "", err
+		}
+		switch key {
+		case githubkeyboard.KeyEsc:
+			fmt.Fprintln(out)
+			return "", errPromptCanceled
+		case githubkeyboard.KeyEnter:
+			fmt.Fprintln(out)
+			return string(buffer), nil
+		case githubkeyboard.KeyBackspace, githubkeyboard.KeyBackspace2:
+			if len(buffer) > 0 {
+				buffer = buffer[:len(buffer)-1]
+				fmt.Fprint(out, "\b \b")
+			}
+		default:
+			if isPrintable(char) {
+				buffer = append(buffer, char)
+				fmt.Fprint(out, string(char))
+			}
+		}
+	}
+}
+
+func isPrintable(r rune) bool {
+	return r >= 32 && r != 127
 }

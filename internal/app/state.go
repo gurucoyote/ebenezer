@@ -18,8 +18,9 @@ type Cursor struct {
 
 // State captures the high-level CLI session data.
 type State struct {
-	Workbook *workbook.Workbook
-	Cursor   Cursor
+	Workbook  *workbook.Workbook
+	Cursor    Cursor
+	Clipboard Clipboard
 }
 
 // NewState initializes with sample workbook so the demo has data.
@@ -38,6 +39,7 @@ func (s *State) LoadWorkbook(wb *workbook.Workbook) {
 	}
 	s.Workbook = wb
 	s.Cursor = Cursor{Row: 1, Col: 1}
+	s.Clipboard = Clipboard{}
 }
 
 // Move adjusts the cursor, clamping to valid coordinates.
@@ -127,6 +129,63 @@ func (s *State) StyleAt(address string) (workbook.CellStyle, bool) {
 		address = s.Address()
 	}
 	return s.Workbook.Style(address)
+}
+
+// EditCurrentCell sets the current cell to the provided value.
+func (s *State) EditCurrentCell(value string) {
+	if s.Workbook == nil {
+		return
+	}
+	s.Workbook.SetCell(s.Cursor.Row, s.Cursor.Col, value)
+}
+
+// ClearCurrentCell blanks the current cell.
+func (s *State) ClearCurrentCell() {
+	if s.Workbook == nil {
+		return
+	}
+	s.Workbook.ClearCell(s.Cursor.Row, s.Cursor.Col)
+}
+
+// ClipboardKind describes the type stored in the clipboard.
+type ClipboardKind int
+
+const (
+	ClipboardNone ClipboardKind = iota
+	ClipboardCell
+)
+
+// Clipboard stores yank/cut data.
+type Clipboard struct {
+	Kind  ClipboardKind
+	Value string
+}
+
+// YankCurrentCell copies the current cell into the clipboard without mutation.
+func (s *State) YankCurrentCell() string {
+	value := s.CurrentValue()
+	s.Clipboard = Clipboard{Kind: ClipboardCell, Value: value}
+	return value
+}
+
+// CutCurrentCell copies the current cell into the clipboard and clears it.
+func (s *State) CutCurrentCell() string {
+	value := s.CurrentValue()
+	s.Clipboard = Clipboard{Kind: ClipboardCell, Value: value}
+	s.ClearCurrentCell()
+	return value
+}
+
+// PasteClipboard writes the clipboard contents into the current cell.
+func (s *State) PasteClipboard() error {
+	if s.Workbook == nil {
+		return errors.New("no workbook loaded")
+	}
+	if s.Clipboard.Kind != ClipboardCell {
+		return errors.New("clipboard empty")
+	}
+	s.Workbook.SetCell(s.Cursor.Row, s.Cursor.Col, s.Clipboard.Value)
+	return nil
 }
 
 // Address returns Excel-like cell reference (e.g., A1).

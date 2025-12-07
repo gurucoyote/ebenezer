@@ -61,3 +61,26 @@ func TestGotoInvalid(t *testing.T) {
 		t.Fatalf("expected error for missing row digits")
 	}
 }
+
+func TestEditAndClipboard(t *testing.T) {
+	st := NewState()
+	st.EditCurrentCell("foo")
+	if got := st.CurrentValue(); got != "foo" {
+		t.Fatalf("expected foo, got %s", got)
+	}
+	st.YankCurrentCell()
+	if st.Clipboard.Kind != ClipboardCell || st.Clipboard.Value != "foo" {
+		t.Fatalf("clipboard mismatch: %+v", st.Clipboard)
+	}
+	st.CutCurrentCell()
+	if val := st.CurrentValue(); val != "" {
+		t.Fatalf("expected cell cleared after cut, got %q", val)
+	}
+	st.Clipboard.Value = "bar"
+	if err := st.PasteClipboard(); err != nil {
+		t.Fatalf("paste failed: %v", err)
+	}
+	if got := st.CurrentValue(); got != "bar" {
+		t.Fatalf("expected bar after paste, got %s", got)
+	}
+}

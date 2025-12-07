@@ -62,3 +62,15 @@ func TestColumnName(t *testing.T) {
 		}
 	}
 }
+
+func TestSetAndClearCell(t *testing.T) {
+	wb := &Workbook{}
+	wb.SetCell(3, 2, "hello")
+	if got := wb.Cell(3, 2); got != "hello" {
+		t.Fatalf("expected hello, got %s", got)
+	}
+	wb.ClearCell(3, 2)
+	if got := wb.Cell(3, 2); got != "" {
+		t.Fatalf("expected empty after clear, got %s", got)
+	}
+}

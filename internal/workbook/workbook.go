@@ -105,6 +105,42 @@ func (w *Workbook) MaxCoords() (int, int) {
 	return rows, cols
 }
 
+// SetCell writes the value at the provided 1-based row/column, expanding the
+// in-memory grid as needed.
+func (w *Workbook) SetCell(row, col int, value string) {
+	if w == nil || row < 1 || col < 1 {
+		return
+	}
+	w.ensureCell(row, col)
+	w.Cells[row-1][col-1] = value
+}
+
+// ClearCell blanks the cell if it exists.
+func (w *Workbook) ClearCell(row, col int) {
+	if w == nil || row < 1 || col < 1 {
+		return
+	}
+	if row-1 >= len(w.Cells) {
+		return
+	}
+	rowData := w.Cells[row-1]
+	if col-1 >= len(rowData) {
+		return
+	}
+	rowData[col-1] = ""
+}
+
+func (w *Workbook) ensureCell(row, col int) {
+	for len(w.Cells) < row {
+		w.Cells = append(w.Cells, []string{})
+	}
+	rowData := w.Cells[row-1]
+	if len(rowData) < col {
+		rowData = append(rowData, make([]string, col-len(rowData))...)
+		w.Cells[row-1] = rowData
+	}
+}
+
 // ColumnName converts a 1-based column index into its Excel column string.
 func ColumnName(col int) string {
 	if col <= 0 {
