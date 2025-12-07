@@ -2,25 +2,31 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 
 	"ebenezer/internal/app"
 	"ebenezer/internal/ui/status"
+	"ebenezer/internal/workbook"
 
 	"github.com/spf13/cobra"
 )
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "ebenezer",
+		Use:   "ebenezer [FILE]",
 		Short: "Ebenezer spreadsheet CLI (skeleton)",
+		Args:  cobra.MaximumNArgs(1),
 	}
-	appState = app.NewState()
+	appState  = app.NewState()
+	rootSheet string
 )
 
 func init() {
+	rootCmd.RunE = rootRun
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
 		status.Print(cmd.OutOrStdout(), appState)
 	}
+	rootCmd.PersistentFlags().StringVar(&rootSheet, "sheet", "", "Sheet to load when opening .xlsx files")
 }
 
 // Execute runs the root command with the provided arguments/context.
@@ -39,4 +45,26 @@ func Root() *cobra.Command {
 // AppState exposes the shared in-memory state for commands/keyboard bindings.
 func AppState() *app.State {
 	return appState
+}
+
+func rootRun(cmd *cobra.Command, args []string) error {
+	if len(args) > 0 {
+		if err := loadWorkbookFromArg(cmd, args[0], rootSheet); err != nil {
+			return err
+		}
+	} else {
+		fmt.Fprintln(cmd.OutOrStdout(), "no file provided, using sample workbook")
+		appState.LoadWorkbook(workbook.SampleWorkbook())
+	}
+	return runKeyboardMode(cmd)
+}
+
+func loadWorkbookFromArg(cmd *cobra.Command, path, sheet string) error {
+	wb, err := workbook.FromFile(path, sheet)
+	if err != nil {
+		return err
+	}
+	appState.LoadWorkbook(wb)
+	fmt.Fprintf(cmd.OutOrStdout(), "loaded %s [%s]\n", wb.Name, wb.Sheet)
+	return nil
 }

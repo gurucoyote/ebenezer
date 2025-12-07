@@ -7,9 +7,11 @@ This walkthrough exercises the current Go skeleton so you can see the keyboard l
 go build ./cmd/ebenezer
 ```
 
-## Run with Sample Workbook
+## Run with Sample Workbook or Real Files
 ```
-./ebenezer keyboard
+./ebenezer data.xlsx     # load an existing workbook (csv/xlsx)
+# or start with the built-in sample data
+./ebenezer
 ```
 
 ### Normal Mode Bindings (current scope)
@@ -19,7 +21,7 @@ go build ./cmd/ebenezer
 - `:`: enter command mode (type commands such as `status`, `open test.csv`, `sample`).
 - `q`: exit keyboard mode.
 
-### Command Examples
+### Command Examples (`:` prompt)
 ```
 :status               # show active cell/value
 :open js/test.csv     # load an existing CSV in the repo

@@ -17,7 +17,7 @@ var keyboardCmd = &cobra.Command{
 	Use:   "keyboard",
 	Short: "Enter vim-like keyboard control mode",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return startKeyboardLoop(cmd)
+		return runKeyboardMode(cmd)
 	},
 }
 
@@ -25,7 +25,7 @@ func init() {
 	rootCmd.AddCommand(keyboardCmd)
 }
 
-func startKeyboardLoop(c *cobra.Command) error {
+func runKeyboardMode(c *cobra.Command) error {
 	ctx := c.Context()
 	if ctx == nil {
 		ctx = context.Background()

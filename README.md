@@ -13,7 +13,9 @@ Ebenezer is a headless-yet-interactive spreadsheet editor with a Vim-inspired wo
 ## Build & Run
 ```bash
 ./build.sh              # builds ./ebenezer
-./ebenezer keyboard     # launch demo keyboard loop
+./ebenezer data.xlsx    # load a workbook and jump straight into keyboard mode
+# or fall back to the sample workbook
+./ebenezer              # launches keyboard mode with the built-in sample data
 ```
 
 While in keyboard mode:
