@@ -56,9 +56,15 @@ func runKeyboardMode(c *cobra.Command) error {
 				'c': columnHeaderShortcut(),
 				'r': rowHeaderShortcut(),
 				'y': simpleCommand("yank"),
+				'Y': simpleCommand("row", "yank"),
 				'x': simpleCommand("cut"),
+				'X': simpleCommand("row", "cut"),
 				'p': simpleCommand("paste"),
+				'P': simpleCommand("paste", "--before"),
 				'd': deleteCellShortcut(),
+				'D': simpleCommand("row", "delete"),
+				'O': simpleCommand("row", "insert-above"),
+				'o': simpleCommand("row", "insert-below"),
 			},
 		},
 	}
@@ -193,9 +199,10 @@ func deleteCellShortcut() keyboard.Action {
 	}
 }
 
-func simpleCommand(name string) keyboard.Action {
+func simpleCommand(name string, args ...string) keyboard.Action {
 	return func(ctx *keyboard.Context) error {
-		return ctx.Executor.ExecuteCommand([]string{name})
+		cmdArgs := append([]string{name}, args...)
+		return ctx.Executor.ExecuteCommand(cmdArgs)
 	}
 }
 

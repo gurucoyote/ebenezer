@@ -46,14 +46,16 @@ var cutCmd = &cobra.Command{
 	},
 }
 
+var pasteBefore bool
+
 var pasteCmd = &cobra.Command{
 	Use:   "paste",
-	Short: "Paste the clipboard into the current cell",
+	Short: "Paste the clipboard into the current location",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if err := appState.PasteClipboard(); err != nil {
+		if err := appState.PasteClipboard(pasteBefore); err != nil {
 			return err
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "pasted %q into %s\n", appState.CurrentValue(), appState.Address())
+		fmt.Fprintf(cmd.OutOrStdout(), "pasted into %s\n", appState.Address())
 		return nil
 	},
 }
@@ -64,4 +66,5 @@ func init() {
 	rootCmd.AddCommand(yankCmd)
 	rootCmd.AddCommand(cutCmd)
 	rootCmd.AddCommand(pasteCmd)
+	pasteCmd.Flags().BoolVar(&pasteBefore, "before", false, "Paste rows above the current row when clipboard holds rows")
 }

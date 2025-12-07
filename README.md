@@ -23,7 +23,8 @@ While in keyboard mode:
 - `g` prompts for a cell address (e.g., `B12`) and jumps there.
 - `s` prints the current cell via the status helper.
 - `c` `t` prints the column header (row 1), `r` `t` prints the row header (column 1).
-- `i` edits the current cell (inline prompt). `y` yanks, `x` cuts, `p` pastes, `d` `c` clears the cell.
+- `i` edits the current cell (inline prompt). `y` yanks, `x` cuts, `p`/`P` pastes (after/before), `d` `c` clears the cell.
+- `Y` yanks the current row, `X` cuts it, `D` deletes it, `O/o` insert blank rows above/below.
 - `:style` describes the formatting of the current (or specified) cell.
 - `:` enters command mode—run commands like `status`, `open js/test.xlsx --sheet Sheet1`, `colheader`, `rowheader`, `sample`, `style B3`.
 - `q` exits keyboard mode.

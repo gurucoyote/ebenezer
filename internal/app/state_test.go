@@ -69,18 +69,52 @@ func TestEditAndClipboard(t *testing.T) {
 		t.Fatalf("expected foo, got %s", got)
 	}
 	st.YankCurrentCell()
-	if st.Clipboard.Kind != ClipboardCell || st.Clipboard.Value != "foo" {
+	if st.Clipboard.Kind != ClipboardCell || st.Clipboard.CellValue != "foo" {
 		t.Fatalf("clipboard mismatch: %+v", st.Clipboard)
 	}
 	st.CutCurrentCell()
 	if val := st.CurrentValue(); val != "" {
 		t.Fatalf("expected cell cleared after cut, got %q", val)
 	}
-	st.Clipboard.Value = "bar"
-	if err := st.PasteClipboard(); err != nil {
+	st.Clipboard.CellValue = "bar"
+	if err := st.PasteClipboard(false); err != nil {
 		t.Fatalf("paste failed: %v", err)
 	}
 	if got := st.CurrentValue(); got != "bar" {
 		t.Fatalf("expected bar after paste, got %s", got)
+	}
+	st.Clipboard = Clipboard{}
+	if err := st.PasteClipboard(false); err == nil {
+		t.Fatalf("expected error when clipboard empty")
+	}
+}
+
+func TestRowOperations(t *testing.T) {
+	st := NewState()
+	st.YankCurrentRow()
+	if st.Clipboard.Kind != ClipboardRow || len(st.Clipboard.RowValues) == 0 {
+		t.Fatalf("expected row clipboard, got %+v", st.Clipboard)
+	}
+	st.CutCurrentRow()
+	rows, _ := st.Workbook.MaxCoords()
+	if rows != 4 {
+		t.Fatalf("expected 4 rows after cut, got %d", rows)
+	}
+	if err := st.PasteClipboard(true); err != nil {
+		t.Fatalf("row paste failed: %v", err)
+	}
+	rows, _ = st.Workbook.MaxCoords()
+	if rows != 5 {
+		t.Fatalf("expected 5 rows after paste, got %d", rows)
+	}
+	st.InsertRowAbove()
+	rows, _ = st.Workbook.MaxCoords()
+	if rows != 6 {
+		t.Fatalf("expected 6 rows after insert, got %d", rows)
+	}
+	st.DeleteCurrentRow()
+	rows, _ = st.Workbook.MaxCoords()
+	if rows != 5 {
+		t.Fatalf("expected row deletion to reduce count")
 	}
 }

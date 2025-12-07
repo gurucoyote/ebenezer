@@ -74,3 +74,24 @@ func TestSetAndClearCell(t *testing.T) {
 		t.Fatalf("expected empty after clear, got %s", got)
 	}
 }
+
+func TestInsertDeleteRow(t *testing.T) {
+	wb := &Workbook{
+		Cells:  [][]string{{"a", "b"}, {"c", "d"}},
+		Styles: map[string]CellStyle{"A1": {Bold: true}, "B2": {Italic: true}},
+	}
+	wb.InsertRow(2, []string{"x", "y"})
+	if val := wb.Cell(2, 1); val != "x" {
+		t.Fatalf("expected inserted row value, got %s", val)
+	}
+	if _, ok := wb.Styles["B3"]; !ok {
+		t.Fatalf("expected style to shift after insert")
+	}
+	row, ok := wb.DeleteRow(2)
+	if !ok || row[0] != "x" {
+		t.Fatalf("expected delete row to return inserted data")
+	}
+	if _, ok := wb.Styles["B2"]; !ok {
+		t.Fatalf("expected shifted style to move back after delete")
+	}
+}

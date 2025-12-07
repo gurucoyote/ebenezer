@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -105,6 +106,16 @@ func (w *Workbook) MaxCoords() (int, int) {
 	return rows, cols
 }
 
+// Row returns a copy of the row at the given index (1-based).
+func (w *Workbook) Row(row int) []string {
+	if row < 1 || row > len(w.Cells) {
+		return nil
+	}
+	dup := make([]string, len(w.Cells[row-1]))
+	copy(dup, w.Cells[row-1])
+	return dup
+}
+
 // SetCell writes the value at the provided 1-based row/column, expanding the
 // in-memory grid as needed.
 func (w *Workbook) SetCell(row, col int, value string) {
@@ -153,4 +164,166 @@ func ColumnName(col int) string {
 		col /= 26
 	}
 	return name
+}
+
+// InsertRow inserts the provided data before the given row index (1-based).
+// If data is nil, a zeroed row is inserted.
+func (w *Workbook) InsertRow(idx int, data []string) {
+	if idx < 1 {
+		idx = 1
+	}
+	if idx > len(w.Cells)+1 {
+		idx = len(w.Cells) + 1
+	}
+	w.normalizeRow(&data)
+	w.Cells = append(w.Cells, nil)
+	copy(w.Cells[idx:], w.Cells[idx-1:])
+	w.Cells[idx-1] = data
+	w.shiftStylesRowsInsert(idx)
+}
+
+// DeleteRow removes the row at the given index and returns a copy plus a
+// boolean indicating success.
+func (w *Workbook) DeleteRow(idx int) ([]string, bool) {
+	if idx < 1 || idx > len(w.Cells) {
+		return nil, false
+	}
+	removed := w.Row(idx)
+	w.Cells = append(w.Cells[:idx-1], w.Cells[idx:]...)
+	w.shiftStylesRowsDelete(idx)
+	return removed, true
+}
+
+// SetRow overwrites the row at the given index with the provided data,
+// expanding as needed.
+func (w *Workbook) SetRow(idx int, data []string) {
+	if idx < 1 {
+		return
+	}
+	w.normalizeRow(&data)
+	for len(w.Cells) < idx {
+		w.Cells = append(w.Cells, make([]string, len(data)))
+	}
+	row := w.Cells[idx-1]
+	if len(row) != len(data) {
+		row = make([]string, len(data))
+	}
+	copy(row, data)
+	w.Cells[idx-1] = row
+}
+
+// SetStyle assigns a style to the provided row/column.
+func (w *Workbook) SetStyle(row, col int, style CellStyle) {
+	if row < 1 || col < 1 {
+		return
+	}
+	addr := fmt.Sprintf("%s%d", ColumnName(col), row)
+	if style.Empty() {
+		if w.Styles != nil {
+			delete(w.Styles, addr)
+		}
+		return
+	}
+	if w.Styles == nil {
+		w.Styles = map[string]CellStyle{}
+	}
+	w.Styles[addr] = style
+}
+
+func (w *Workbook) normalizeRow(data *[]string) {
+	cols := w.maxCols()
+	if cols == 0 {
+		cols = len(*data)
+	}
+	if len(*data) == 0 {
+		if cols == 0 {
+			*data = []string{}
+			return
+		}
+		*data = make([]string, cols)
+		return
+	}
+	if cols == 0 {
+		cols = len(*data)
+	}
+	if len(*data) < cols {
+		*data = append(*data, make([]string, cols-len(*data))...)
+	} else if len(*data) > cols && cols > 0 {
+		*data = (*data)[:cols]
+	}
+}
+
+func (w *Workbook) maxCols() int {
+	cols := 0
+	for _, row := range w.Cells {
+		if len(row) > cols {
+			cols = len(row)
+		}
+	}
+	return cols
+}
+
+func (w *Workbook) shiftStylesRowsInsert(idx int) {
+	if w.Styles == nil {
+		return
+	}
+	updated := make(map[string]CellStyle, len(w.Styles))
+	for addr, style := range w.Styles {
+		col, row, err := splitAddress(addr)
+		if err != nil {
+			continue
+		}
+		if row >= idx {
+			row++
+		}
+		updated[fmt.Sprintf("%s%d", col, row)] = style
+	}
+	w.Styles = updated
+}
+
+func (w *Workbook) shiftStylesRowsDelete(idx int) {
+	if w.Styles == nil {
+		return
+	}
+	updated := make(map[string]CellStyle, len(w.Styles))
+	for addr, style := range w.Styles {
+		col, row, err := splitAddress(addr)
+		if err != nil {
+			continue
+		}
+		if row == idx {
+			continue
+		}
+		if row > idx {
+			row--
+		}
+		updated[fmt.Sprintf("%s%d", col, row)] = style
+	}
+	w.Styles = updated
+}
+
+func splitAddress(address string) (col string, row int, err error) {
+	addr := strings.TrimSpace(strings.ToUpper(address))
+	if addr == "" {
+		return "", 0, fmt.Errorf("empty address")
+	}
+	var letters, digits strings.Builder
+	for _, r := range addr {
+		switch {
+		case r >= 'A' && r <= 'Z':
+			letters.WriteRune(r)
+		case r >= '0' && r <= '9':
+			digits.WriteRune(r)
+		default:
+			return "", 0, fmt.Errorf("invalid address %s", address)
+		}
+	}
+	if letters.Len() == 0 || digits.Len() == 0 {
+		return "", 0, fmt.Errorf("invalid address %s", address)
+	}
+	row, err = strconv.Atoi(digits.String())
+	if err != nil {
+		return "", 0, err
+	}
+	return letters.String(), row, nil
 }

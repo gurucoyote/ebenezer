@@ -23,6 +23,23 @@ type State struct {
 	Clipboard Clipboard
 }
 
+// ClipboardKind describes the type stored in the clipboard.
+type ClipboardKind int
+
+const (
+	ClipboardNone ClipboardKind = iota
+	ClipboardCell
+	ClipboardRow
+)
+
+// Clipboard stores yank/cut data.
+type Clipboard struct {
+	Kind      ClipboardKind
+	CellValue string
+	RowValues []string
+	RowStyles map[int]workbook.CellStyle
+}
+
 // NewState initializes with sample workbook so the demo has data.
 func NewState() *State {
 	wb := workbook.SampleWorkbook()
@@ -147,45 +164,121 @@ func (s *State) ClearCurrentCell() {
 	s.Workbook.ClearCell(s.Cursor.Row, s.Cursor.Col)
 }
 
-// ClipboardKind describes the type stored in the clipboard.
-type ClipboardKind int
-
-const (
-	ClipboardNone ClipboardKind = iota
-	ClipboardCell
-)
-
-// Clipboard stores yank/cut data.
-type Clipboard struct {
-	Kind  ClipboardKind
-	Value string
-}
-
 // YankCurrentCell copies the current cell into the clipboard without mutation.
 func (s *State) YankCurrentCell() string {
 	value := s.CurrentValue()
-	s.Clipboard = Clipboard{Kind: ClipboardCell, Value: value}
+	s.Clipboard = Clipboard{Kind: ClipboardCell, CellValue: value}
 	return value
 }
 
 // CutCurrentCell copies the current cell into the clipboard and clears it.
 func (s *State) CutCurrentCell() string {
 	value := s.CurrentValue()
-	s.Clipboard = Clipboard{Kind: ClipboardCell, Value: value}
+	s.Clipboard = Clipboard{Kind: ClipboardCell, CellValue: value}
 	s.ClearCurrentCell()
 	return value
 }
 
-// PasteClipboard writes the clipboard contents into the current cell.
-func (s *State) PasteClipboard() error {
+// PasteClipboard writes the clipboard contents into the sheet. When before is
+// true, row pastes happen above the current row; otherwise below.
+func (s *State) PasteClipboard(before bool) error {
 	if s.Workbook == nil {
 		return errors.New("no workbook loaded")
 	}
-	if s.Clipboard.Kind != ClipboardCell {
+	switch s.Clipboard.Kind {
+	case ClipboardCell:
+		s.Workbook.SetCell(s.Cursor.Row, s.Cursor.Col, s.Clipboard.CellValue)
+		return nil
+	case ClipboardRow:
+		row := make([]string, len(s.Clipboard.RowValues))
+		copy(row, s.Clipboard.RowValues)
+		target := s.Cursor.Row
+		if !before {
+			target++
+		}
+		s.Workbook.InsertRow(target, row)
+		for col, style := range s.Clipboard.RowStyles {
+			s.Workbook.SetStyle(target, col, style)
+		}
+		return nil
+	default:
 		return errors.New("clipboard empty")
 	}
-	s.Workbook.SetCell(s.Cursor.Row, s.Cursor.Col, s.Clipboard.Value)
-	return nil
+}
+
+// YankCurrentRow copies the entire row into the clipboard.
+func (s *State) YankCurrentRow() []string {
+	if s.Workbook == nil {
+		return nil
+	}
+	row := s.Workbook.Row(s.Cursor.Row)
+	styles := s.collectRowStyles(s.Cursor.Row)
+	s.Clipboard = Clipboard{Kind: ClipboardRow, RowValues: row, RowStyles: styles}
+	return row
+}
+
+// CutCurrentRow copies the row to the clipboard and removes it from the sheet.
+func (s *State) CutCurrentRow() []string {
+	row := s.YankCurrentRow()
+	if row == nil {
+		return nil
+	}
+	s.deleteRow(s.Cursor.Row)
+	return row
+}
+
+// DeleteCurrentRow removes the row without touching the clipboard.
+func (s *State) DeleteCurrentRow() {
+	if s.Workbook == nil {
+		return
+	}
+	s.deleteRow(s.Cursor.Row)
+}
+
+func (s *State) deleteRow(idx int) {
+	if s.Workbook == nil {
+		return
+	}
+	if _, ok := s.Workbook.DeleteRow(idx); !ok {
+		return
+	}
+	maxRow, _ := s.Workbook.MaxCoords()
+	if maxRow == 0 {
+		s.Cursor.Row = 1
+	} else if s.Cursor.Row > maxRow {
+		s.Cursor.Row = maxRow
+	}
+}
+
+// InsertRowAbove inserts a blank row before the cursor.
+func (s *State) InsertRowAbove() {
+	if s.Workbook == nil {
+		return
+	}
+	s.Workbook.InsertRow(s.Cursor.Row, nil)
+}
+
+// InsertRowBelow inserts a blank row after the cursor.
+func (s *State) InsertRowBelow() {
+	if s.Workbook == nil {
+		return
+	}
+	s.Workbook.InsertRow(s.Cursor.Row+1, nil)
+}
+
+func (s *State) collectRowStyles(row int) map[int]workbook.CellStyle {
+	styles := map[int]workbook.CellStyle{}
+	if s.Workbook == nil {
+		return styles
+	}
+	_, maxCol := s.Workbook.MaxCoords()
+	for col := 1; col <= maxCol; col++ {
+		addr := fmt.Sprintf("%s%d", workbook.ColumnName(col), row)
+		if style, ok := s.Workbook.Style(addr); ok {
+			styles[col] = style
+		}
+	}
+	return styles
 }
 
 // Address returns Excel-like cell reference (e.g., A1).
