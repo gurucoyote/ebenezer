@@ -152,3 +152,37 @@ Notes:
   - Interactive: open `js/test.xlsx`, run `:info`, confirm output matches CLI command.
   - `go test ./internal/app -run TestWorkbookInfoSummary` validates metadata aggregation.
 - Plan Link: IMPLEMENTATION_PLAN.md §Milestone 2 – add task “Workbook Info Command (US-07)”
+---
+2025-12-07T18:30:00Z - Agent Codex
+Story ID: US-09
+As an MCP automation engineer working with visually coded Excel workbooks,
+I want MCP metadata endpoints that describe each sheet’s structure and style semantics in a machine-readable schema,
+So that agents can interpret TODO/importance signals without opening the file manually.
+
+Acceptance Criteria:
+- The MCP `info` action returns JSON fields covering: sheet list, row/column counts, active cell, style aggregates (counts by fill/font/border), and optional `styleSemantics` objects when workbooks annotate meanings (e.g., via hidden sheet or metadata range).
+- The metadata schema is documented (`docs/mcp-style-schema.md`) and validated in tests; missing annotations fall back to raw descriptors.
+- CLI `:info` prints a human-readable summary while MCP responses provide the structured payload.
+- Tests: unit tests for metadata aggregation plus an MCP integration test verifying the JSON payload for a styled fixture workbook.
+
+Notes:
+- Priority: P1 (depends on US-07 metadata groundwork)
+- Tags: mcp,metadata,styling
+- Plan Link: IMPLEMENTATION_PLAN.md §Milestone 4 + action metadata plan (M1–M3)
+---
+2025-12-07T18:30:00Z - Agent Codex
+Story ID: US-10
+As an MCP automation engineer editing visually coded Excel workbooks,
+I want MCP editing actions (cell edits, row/column inserts, duplicates) to preserve or inherit styles and report the outcome,
+So that automation can expand sheets without breaking the visual language humans rely on.
+
+Acceptance Criteria:
+- Editing actions (`cell/edit`, `row/insert`, `column/insert`, `paste`) keep existing styles intact; responses include a `styleStatus` field (e.g., `retained`, `inherited`, `error`).
+- MCP clients can pass an optional `styleFrom` range when inserting/duplicating to request format-painter behavior; errors are surfaced when dimensions mismatch.
+- Logging captures style-preservation/inheritance outcomes for auditing and debugging.
+- Regression tests (unit + MCP integration) run against fixture workbooks to confirm style hashes remain unchanged after edits and that inheritance requests succeed/fail predictably.
+
+Notes:
+- Priority: P1 (depends on US-02 styling guarantees and US-09 metadata schema)
+- Tags: mcp,styling,editing
+- Plan Link: IMPLEMENTATION_PLAN.md §Milestone 4 + metadata/logging plan (M2–M4)
