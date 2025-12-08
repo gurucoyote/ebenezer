@@ -33,6 +33,15 @@ type pasteAction struct{}
 
 func (editAction) Name() string { return "edit" }
 
+func (editAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "edit",
+		Description: "Set the current cell's value",
+		Category:    "editing",
+		Args:        []Arg{{Name: "value", Description: "Text inserted into the current cell", Variadic: true}},
+	}
+}
+
 func (editAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := EnsureState(ctx); err != nil {
 		return Result{}, err
@@ -44,6 +53,14 @@ func (editAction) Exec(ctx Context, args []string) (Result, error) {
 }
 
 func (clearAction) Name() string { return "clear" }
+
+func (clearAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "clear",
+		Description: "Clear the current cell or selection",
+		Category:    "editing",
+	}
+}
 
 func (clearAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := EnsureState(ctx); err != nil {
@@ -59,6 +76,15 @@ func (clearAction) Exec(ctx Context, args []string) (Result, error) {
 
 func (yankCellAction) Name() string { return "yank" }
 
+func (yankCellAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "yank",
+		Description: "Copy the current cell/selection into the clipboard",
+		Category:    "clipboard",
+		Idempotent:  true,
+	}
+}
+
 func (yankCellAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := EnsureState(ctx); err != nil {
 		return Result{}, err
@@ -73,6 +99,14 @@ func (yankCellAction) Exec(ctx Context, args []string) (Result, error) {
 
 func (cutCellAction) Name() string { return "cut" }
 
+func (cutCellAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "cut",
+		Description: "Cut the current cell/selection into the clipboard",
+		Category:    "clipboard",
+	}
+}
+
 func (cutCellAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := EnsureState(ctx); err != nil {
 		return Result{}, err
@@ -86,6 +120,15 @@ func (cutCellAction) Exec(ctx Context, args []string) (Result, error) {
 }
 
 func (pasteAction) Name() string { return "paste" }
+
+func (pasteAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "paste",
+		Description: "Paste clipboard contents into the current cell/selection",
+		Category:    "clipboard",
+		Args:        []Arg{{Name: "--before", Description: "Paste rows above the current row", Optional: true}},
+	}
+}
 
 func (pasteAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := EnsureState(ctx); err != nil {

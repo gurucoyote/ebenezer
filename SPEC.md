@@ -102,7 +102,7 @@ internal/search/search.go   // Column search utilities
 pkg/mcp/server.go           // MCP server implementation (Phase 2)
 ```
 - Use dependency injection so both CLI and MCP server share workbook + command primitives.
-- Introduce `Action` interface with `Name() string`, `Description() string`, `Exec(*AppState) error` for reuse.
+- Introduce an action interface that exposes metadata (`Name`, `Description`, `Category`, argument schema) alongside the execution hook so CLI, keyboard, and MCP surfaces can discover capabilities programmatically.
 
 ## 6. External Dependencies (tentative)
 - [`github.com/spf13/cobra`](https://github.com/spf13/cobra) to declare the CLI surface (root command plus future MCP/utility subcommands) and manage flag parsing consistently.

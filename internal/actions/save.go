@@ -40,17 +40,44 @@ type writeForceAction struct{}
 
 func (saveAction) Name() string { return "save" }
 
+func (saveAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "save",
+		Description: "Save the current workbook to its existing path or an optional new path",
+		Category:    "file",
+		Args:        []Arg{{Name: "path", Description: "Optional path", Optional: true}},
+	}
+}
+
 func (saveAction) Exec(ctx Context, args []string) (Result, error) {
 	return runSave(ctx, args, false)
 }
 
 func (saveForceAction) Name() string { return "save!" }
 
+func (saveForceAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "save!",
+		Description: "Force save the workbook, overwriting existing files",
+		Category:    "file",
+		Args:        []Arg{{Name: "path", Description: "Optional path", Optional: true}},
+	}
+}
+
 func (saveForceAction) Exec(ctx Context, args []string) (Result, error) {
 	return runSave(ctx, args, true)
 }
 
 func (saveAsAction) Name() string { return "saveas" }
+
+func (saveAsAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "saveas",
+		Description: "Save the current workbook to a new path",
+		Category:    "file",
+		Args:        []Arg{{Name: "path", Description: "Destination path"}},
+	}
+}
 
 func (saveAsAction) Exec(ctx Context, args []string) (Result, error) {
 	if len(args) != 1 {
@@ -61,11 +88,29 @@ func (saveAsAction) Exec(ctx Context, args []string) (Result, error) {
 
 func (writeAction) Name() string { return "w" }
 
+func (writeAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "w",
+		Description: "Vim-style save command (alias of save)",
+		Category:    "file",
+		Args:        []Arg{{Name: "path", Description: "Optional path", Optional: true}},
+	}
+}
+
 func (writeAction) Exec(ctx Context, args []string) (Result, error) {
 	return runSave(ctx, args, false)
 }
 
 func (writeForceAction) Name() string { return "w!" }
+
+func (writeForceAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "w!",
+		Description: "Vim-style forced save",
+		Category:    "file",
+		Args:        []Arg{{Name: "path", Description: "Optional path", Optional: true}},
+	}
+}
 
 func (writeForceAction) Exec(ctx Context, args []string) (Result, error) {
 	return runSave(ctx, args, true)

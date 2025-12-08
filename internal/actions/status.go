@@ -16,6 +16,15 @@ type statusAction struct{}
 
 func (statusAction) Name() string { return "status" }
 
+func (statusAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "status",
+		Description: "Print the current cell address/value and selection summary",
+		Category:    "navigation",
+		Idempotent:  true,
+	}
+}
+
 func (statusAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := EnsureState(ctx); err != nil {
 		return Result{}, err

@@ -32,6 +32,19 @@ type WorkbookInfo struct {
 
 func (infoAction) Name() string { return "info" }
 
+func (infoAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "info",
+		Description: "Summarize workbook metadata (sheets, dimensions, cursor, file info)",
+		Category:    "metadata",
+		Args: []Arg{
+			{Name: "path", Description: "Optional file to inspect", Optional: true},
+			{Name: "--details", Description: "Include file size/timestamps", Optional: true},
+		},
+		Idempotent: true,
+	}
+}
+
 func (infoAction) Exec(ctx Context, args []string) (Result, error) {
 	if ctx.State == nil {
 		return Result{}, errors.New("no workbook context")

@@ -16,6 +16,7 @@ This document gives CLI coding agents the context they need to work effectively 
 - `./ebenezer [--sheet SHEET] [FILE]` opens CSV/XLSX files and drops into keyboard mode; omit `FILE` to use the sample data.
 - `go test ./...` runs existing unit tests. **Always set `GOCACHE=/root/ebenezer/.cache` first**, e.g. `GOCACHE=/root/ebenezer/.cache go test ./...`, because the default `/root/.cache/go-build` is read-only in this environment and causes misleading `testing/internal/testdeps` errors. Add table-driven tests beside new code.
 - Keyboard `:` command mode intentionally routes through Cobra so humans can keep typing Vim-like commands, but every Cobra handler must call into the shared action layer so behavior stays reusable across keyboard, CLI, and future MCP/AI integrations.
+- Every action **must** declare metadata (name, description, category, arg info, idempotency) and register via `actions.Register`. The action-layer tests iterate the registry and will fail if metadata is missing or incomplete.
 
 ## Coding Conventions
 - Stick to Go 1.22 modules; run `gofmt`/`goimports` on touched files.

@@ -35,6 +35,21 @@ func (s searchAction) Name() string {
 	return "search-reverse"
 }
 
+func (s searchAction) Metadata() Metadata {
+	desc := "Search forward for text in the current sheet"
+	name := "search"
+	if !s.forward {
+		desc = "Search backward for text in the current sheet"
+		name = "search-reverse"
+	}
+	return Metadata{
+		Name:        name,
+		Description: desc,
+		Category:    "search",
+		Args:        []Arg{{Name: "pattern", Description: "Text to locate", Variadic: true}},
+	}
+}
+
 func (s searchAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := EnsureState(ctx); err != nil {
 		return Result{}, err
@@ -54,6 +69,21 @@ func (s searchRepeatAction) Name() string {
 		return "search-next"
 	}
 	return "search-prev"
+}
+
+func (s searchRepeatAction) Metadata() Metadata {
+	desc := "Repeat the last search in the same direction"
+	name := "search-next"
+	if !s.forward {
+		desc = "Repeat the last search in the opposite direction"
+		name = "search-prev"
+	}
+	return Metadata{
+		Name:        name,
+		Description: desc,
+		Category:    "search",
+		Idempotent:  true,
+	}
 }
 
 func (s searchRepeatAction) Exec(ctx Context, args []string) (Result, error) {

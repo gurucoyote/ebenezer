@@ -25,6 +25,16 @@ type stylePasteAction struct{}
 
 func (styleDescribeAction) Name() string { return "style" }
 
+func (styleDescribeAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "style",
+		Description: "Describe the formatting of a cell",
+		Category:    "formatting",
+		Args:        []Arg{{Name: "address", Description: "Optional cell address", Optional: true}},
+		Idempotent:  true,
+	}
+}
+
 func (styleDescribeAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := EnsureState(ctx); err != nil {
 		return Result{}, err
@@ -41,6 +51,15 @@ func (styleDescribeAction) Exec(ctx Context, args []string) (Result, error) {
 }
 
 func (styleCopyAction) Name() string { return "style-copy" }
+
+func (styleCopyAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "style-copy",
+		Description: "Copy formatting from a cell or range",
+		Category:    "formatting",
+		Args:        []Arg{{Name: "range", Description: "Optional source range", Optional: true}},
+	}
+}
 
 func (styleCopyAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := EnsureState(ctx); err != nil {
@@ -61,6 +80,15 @@ func (styleCopyAction) Exec(ctx Context, args []string) (Result, error) {
 }
 
 func (stylePasteAction) Name() string { return "style-paste" }
+
+func (stylePasteAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "style-paste",
+		Description: "Paste formatting into a cell or range",
+		Category:    "formatting",
+		Args:        []Arg{{Name: "range", Description: "Optional destination range", Optional: true}},
+	}
+}
 
 func (stylePasteAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := EnsureState(ctx); err != nil {

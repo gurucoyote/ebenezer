@@ -16,6 +16,16 @@ type searchCaseAction struct{}
 
 func (searchCaseAction) Name() string { return "search-case" }
 
+func (searchCaseAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "search-case",
+		Description: "View or change search case-sensitivity",
+		Category:    "search",
+		Args:        []Arg{{Name: "mode", Description: "sensitive|insensitive|toggle", Optional: true}},
+		Idempotent:  true,
+	}
+}
+
 func (searchCaseAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := EnsureState(ctx); err != nil {
 		return Result{}, err

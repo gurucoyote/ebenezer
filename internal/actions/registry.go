@@ -22,6 +22,8 @@ func (r *registry) Register(action Action, aliases ...string) {
 	if action == nil {
 		panic("actions: cannot register nil action")
 	}
+	meta := action.Metadata()
+	validateMetadata(action, meta)
 	r.Lock()
 	defer r.Unlock()
 	names := append([]string{action.Name()}, aliases...)
@@ -68,4 +70,41 @@ func List() []Action {
 		result = append(result, action)
 	}
 	return result
+}
+
+// ListMetadata returns metadata for all registered actions (deduped).
+func ListMetadata() []Metadata {
+	defaultRegistry.RLock()
+	defer defaultRegistry.RUnlock()
+	result := make([]Metadata, 0, len(defaultRegistry.entries))
+	seen := map[Action]struct{}{}
+	for _, action := range defaultRegistry.entries {
+		if _, ok := seen[action]; ok {
+			continue
+		}
+		seen[action] = struct{}{}
+		result = append(result, action.Metadata())
+	}
+	return result
+}
+
+func validateMetadata(action Action, meta Metadata) {
+	name := strings.TrimSpace(meta.Name)
+	if name == "" {
+		panic(fmt.Sprintf("actions: metadata missing name for %T", action))
+	}
+	if name != action.Name() {
+		panic(fmt.Sprintf("actions: metadata name %q does not match action name %q", name, action.Name()))
+	}
+	if strings.TrimSpace(meta.Description) == "" {
+		panic(fmt.Sprintf("actions: metadata missing description for %s", name))
+	}
+	if strings.TrimSpace(meta.Category) == "" {
+		panic(fmt.Sprintf("actions: metadata missing category for %s", name))
+	}
+	for _, arg := range meta.Args {
+		if strings.TrimSpace(arg.Name) == "" {
+			panic(fmt.Sprintf("actions: metadata argument missing name for %s", name))
+		}
+	}
 }

@@ -22,6 +22,7 @@ type Result struct {
 // Action defines the minimal interface all actions must satisfy.
 type Action interface {
 	Name() string
+	Metadata() Metadata
 	Exec(ctx Context, args []string) (Result, error)
 }
 

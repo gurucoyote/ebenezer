@@ -25,6 +25,18 @@ type sampleAction struct{}
 
 func (openAction) Name() string { return "open" }
 
+func (openAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "open",
+		Description: "Open a workbook from disk",
+		Category:    "file",
+		Args: []Arg{
+			{Name: "path", Description: "Path to CSV/XLSX file"},
+			{Name: "--sheet", Description: "Optional sheet when opening XLSX", Optional: true},
+		},
+	}
+}
+
 func (openAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := EnsureState(ctx); err != nil {
 		return Result{}, err
@@ -49,6 +61,15 @@ func (openAction) Exec(ctx Context, args []string) (Result, error) {
 }
 
 func (sampleAction) Name() string { return "sample" }
+
+func (sampleAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "sample",
+		Description: "Load the built-in sample workbook",
+		Category:    "file",
+		Idempotent:  true,
+	}
+}
 
 func (sampleAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := EnsureState(ctx); err != nil {

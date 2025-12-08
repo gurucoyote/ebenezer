@@ -14,6 +14,18 @@ type moveAction struct{}
 
 func (moveAction) Name() string { return "move" }
 
+func (moveAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "move",
+		Description: "Move the cursor one cell in the specified direction",
+		Category:    "navigation",
+		Args: []Arg{
+			{Name: "direction", Description: "one of left/right/up/down"},
+		},
+		Idempotent: true,
+	}
+}
+
 func (moveAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := EnsureState(ctx); err != nil {
 		return Result{}, err

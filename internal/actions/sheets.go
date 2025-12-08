@@ -29,6 +29,15 @@ type sheetCreateAction struct{}
 
 func (sheetListAction) Name() string { return "ps-list" }
 
+func (sheetListAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "ps-list",
+		Description: "List sheets in the current workbook",
+		Category:    "sheet",
+		Idempotent:  true,
+	}
+}
+
 func (sheetListAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := EnsureState(ctx); err != nil {
 		return Result{}, err
@@ -53,6 +62,15 @@ func (sheetListAction) Exec(ctx Context, args []string) (Result, error) {
 
 func (sheetSwitchAction) Name() string { return "ps" }
 
+func (sheetSwitchAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "ps",
+		Description: "List or switch sheets",
+		Category:    "sheet",
+		Args:        []Arg{{Name: "sheet", Description: "Optional sheet name", Optional: true}},
+	}
+}
+
 func (sheetSwitchAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := EnsureState(ctx); err != nil {
 		return Result{}, err
@@ -73,6 +91,18 @@ func (sheetSwitchAction) Exec(ctx Context, args []string) (Result, error) {
 }
 
 func (sheetCreateAction) Name() string { return "ns" }
+
+func (sheetCreateAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "ns",
+		Description: "Create a new sheet, optionally copying an existing one",
+		Category:    "sheet",
+		Args: []Arg{
+			{Name: "name", Description: "New sheet name"},
+			{Name: "--copy", Description: "Optional source sheet", Optional: true},
+		},
+	}
+}
 
 func (sheetCreateAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := EnsureState(ctx); err != nil {

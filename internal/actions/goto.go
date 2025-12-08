@@ -24,6 +24,15 @@ type rowHeaderAction struct{}
 
 func (gotoAction) Name() string { return "goto" }
 
+func (gotoAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "goto",
+		Description: "Jump the cursor to a specific cell address",
+		Category:    "navigation",
+		Args:        []Arg{{Name: "address", Description: "Excel-style cell address (e.g., B12)"}},
+	}
+}
+
 func (gotoAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := EnsureState(ctx); err != nil {
 		return Result{}, err
@@ -41,6 +50,15 @@ func (gotoAction) Exec(ctx Context, args []string) (Result, error) {
 
 func (columnHeaderAction) Name() string { return "colheader" }
 
+func (columnHeaderAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "colheader",
+		Description: "Describe the header (row 1) of the current column",
+		Category:    "navigation",
+		Idempotent:  true,
+	}
+}
+
 func (columnHeaderAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := EnsureState(ctx); err != nil {
 		return Result{}, err
@@ -50,6 +68,15 @@ func (columnHeaderAction) Exec(ctx Context, args []string) (Result, error) {
 }
 
 func (rowHeaderAction) Name() string { return "rowheader" }
+
+func (rowHeaderAction) Metadata() Metadata {
+	return Metadata{
+		Name:        "rowheader",
+		Description: "Describe the header (column 1) of the current row",
+		Category:    "navigation",
+		Idempotent:  true,
+	}
+}
 
 func (rowHeaderAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := EnsureState(ctx); err != nil {
