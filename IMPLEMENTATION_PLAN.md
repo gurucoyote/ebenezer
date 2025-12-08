@@ -40,7 +40,7 @@ Tasks:
 1. [x] **App State & Lifecycle** (`internal/app/state.go`): implement state + sample workbook loader. *(Filename history still future work.)* **(US-06)**
 2. [~] **Workbook I/O** (`internal/workbook/io.go`): CSV + Excelize-based `.xlsx` loading done; saving, delimiter overrides, and style snapshots still pending. **(US-02, US-05)**
 3. [ ] **Terminal Raw Mode** (`internal/ui/terminal.go`): not started (current demo uses lifted keyboard loop only).
-4. [ ] **Command Registry** (`internal/commands/registry.go`): TBD — current commands directly call state.
+4. [ ] **Command Registry** (`internal/commands/registry.go`): TBD — current commands directly call state. Even though keyboard `:` mode will keep routing through Cobra, each Cobra handler must call into the shared action registry so behavior stays reusable.
 5. [x] **Navigation Commands**: arrow key handlers, goto, row/column headers wired via Cobra + keyboard shortcuts. **(US-01)**
 6. [~] **Editing Commands**: cell + row edit/yank/cut/paste/clear implemented; column operations and save/write flows pending.
 7. [ ] **Style Snapshot Helpers**: not started.
@@ -67,7 +67,7 @@ Tasks:
 4. **Filename History Persistence**: `internal/history/history.go` using Viper config at `$XDG_CONFIG_HOME`. **(US-06)**
 5. **Autosave Toggle**: config flag, temp file write + rename per §9. **(US-06)**
 6. **Range Selection Export**: extend `g` prompt to accept ranges, ensure selection-bound `clear/copy/cut/paste`, and implement `:save-range` for CSV/XLSX extracts. **(US-05)**
-7. **Workbook Info Command**: add `ebenezer info <file>` and `:info`/`gi` shortcuts that surface sheet lists, dimensions, cursor history, and optional metadata via a `--details` flag plus structured log output. **(US-07)**
+7. **Workbook Info Command**: add `ebenezer info <file>` and `:info`/`gi` shortcuts that surface sheet lists, dimensions, cursor history, and optional metadata via a `--details` flag plus structured log output. **(US-07)** Keyboard command-mode will keep using Cobra, but the underlying info logic must live in the action layer to support other transports.
 
 Testing:
 - Unit tests for formula success/failure paths.

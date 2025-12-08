@@ -4,7 +4,7 @@
 |-------|-------|-----------------|--------------|
 | 0 | Inventory commands/bindings, stabilize baseline tests | 2 days | `docs/action-layer-inventory.md`, smoke tests documented |
 | 1 | Create actions package + pilot (move/goto/status) | 3 days | Action interfaces, pilot migrations, pilot tests |
-| 2 | Registry + navigation/edit commands | 5 days | Registry + migrated navigation/edit actions & bindings |
+| 2 | Registry + navigation/edit commands | 5 days | Registry + migrated navigation/edit actions & bindings (keyboard `:` commands remain on Cobra but their handlers call actions). |
 | 3 | Formatting, search, save/load actions | 5 days | Style/search/save actions, updated tests |
 | 4 | Selection/range + info command actions | 4 days | Visual/range/info actions, selection bindings |
 | 5 | Final cleanup + docs/tests | 3 days | Docs updated, `go test ./...`, manual keyboard sign-off |

@@ -89,6 +89,7 @@ Key workflows:
 
 ## 5. Architecture Overview
 CLI orchestration (Cobra) and configuration (Viper) should be layered so that the same command primitives can later be exposed through the MCP server module without duplicating logic.
+Keyboard `:` command mode will continue to invoke Cobra commands, but every Cobra handler must delegate to the shared action layer so behavior stays identical across CLI, keyboard bindings, and future transports.
 ```
 cmd/ebenezer/main.go        // CLI entrypoint, flag parsing
 internal/app/state.go       // AppState struct, lifecycle hooks

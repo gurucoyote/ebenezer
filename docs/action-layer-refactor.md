@@ -25,13 +25,13 @@ This revision focuses on a practical, single-user refactor that extracts command
   type Action interface { Name() string; Exec(ctx Context, args []string) (Result, error) }
   ```
 - Implement pilot actions (`Move`, `Goto`, `Status`) and migrate their Cobra handlers to call these actions.
-- Wire keyboard bindings for arrow keys/`g` to invoke pilot actions directly.
+- Wire keyboard bindings for arrow keys/`g` to invoke pilot actions directly. `:` command mode remains on Cobra for Vim-like workflows, but those Cobra handlers must still call actions under the hood.
 - Deliverable: passing tests for pilot actions + unchanged CLI UX.
 
 ### Phase 2 – Registry & Navigation/Edit Commands (5 days)
 - Build a simple registry (`internal/actions/registry.go`) mapping names → action metadata (usage/help).
 - Migrate navigation and editing commands (`move`, `goto`, `row`, `col`, insert/delete/yank/paste) to the action layer using the registry.
-- Keyboard bindings switch to lookups in the registry.
+- Keyboard bindings switch to lookups in the registry for normal-mode shortcuts, while `:` commands keep using Cobra but continue to call actions so behavior stays unified.
 - Deliverable: CLI + keyboard parity for navigation/editing with zero logic left in Cobra.
 
 ### Phase 3 – Formatting, Search, Save/Load (5 days)

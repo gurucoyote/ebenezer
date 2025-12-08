@@ -157,3 +157,32 @@ func TestSheetListAction(t *testing.T) {
 		t.Fatalf("expected current sheet marker, got %q", res.Message)
 	}
 }
+
+func TestSearchCaseAction(t *testing.T) {
+	st := app.NewState()
+	ctx := NewContext(st, nil)
+	if _, err := SearchCase.Exec(ctx, nil); err != nil {
+		t.Fatalf("search-case show: %v", err)
+	}
+	if st.SearchCaseSensitive {
+		t.Fatalf("expected default insensitive")
+	}
+	if _, err := SearchCase.Exec(ctx, []string{"sensitive"}); err != nil {
+		t.Fatalf("search-case set: %v", err)
+	}
+	if !st.SearchCaseSensitive {
+		t.Fatalf("expected sensitive state")
+	}
+}
+
+func TestInfoAction(t *testing.T) {
+	st := app.NewState()
+	ctx := NewContext(st, nil)
+	res, err := Info.Exec(ctx, nil)
+	if err != nil {
+		t.Fatalf("info current: %v", err)
+	}
+	if !strings.Contains(res.Message, "sheet: Sheet1") {
+		t.Fatalf("expected sheet in info output, got %q", res.Message)
+	}
+}
