@@ -6,21 +6,24 @@
 - **Out of Scope v1**: Full Excel feature parity, graphical UI, concurrent multi-user editing, online storage integrations.
 
 ## 2. Target Personas & Workflows
-1. **Terminal Power User** editing structured data quickly (e.g., CSV exports) without launching Excel/LibreOffice.
-2. **Automation Engineer / Agent** that needs deterministic editing primitives to script spreadsheet tweaks in a CI or CLI agent environment.
+1. **Terminal Power User** editing structured data quickly (e.g., CSV exports) without launching Excel/LibreOffice. *(User story US-01)*
+2. **Automation Engineer / Agent** that needs deterministic editing primitives to script spreadsheet tweaks in a CI or CLI agent environment. *(User story US-04)*
 
 Key workflows:
-- Open an existing workbook or create a new one when no filename is provided.
+- Open an existing workbook or create a new one when no filename is provided. *(User story US-01)*
 - Navigate with modal key bindings, inspect formula results, and edit cell contents quickly.
 - Manipulate rows/columns (insert, delete, yank/cut/paste) and switch between sheets.
-- Duplicate or expand styled regions while retaining fonts, fills, borders, and number formats.
+- Duplicate or expand styled regions while retaining fonts, fills, borders, and number formats. *(User story US-02)*
 - Save to new filenames, preserving prior filenames as history suggestions.
-- Search within a column and jump to matches.
+- Search within a column and jump to matches. *(User story US-03)*
 - Run ad-hoc scripts inside an embedded REPL (optional stretch goal for parity with Node version).
-- Future: expose these operations via MCP for remote invocation.
+- Future: expose these operations via MCP for remote invocation. *(User story US-04)*
+- Select a rectangular range and export that subset to CSV/XLSX without affecting the rest of the workbook. *(User story US-05)*
+- Persist session state, yank buffers, and MRU history so work can resume seamlessly between commands/runs. *(User story US-06)*
+- Inspect workbook metadata via an info command in both CLI and interactive modes. *(User story US-07)*
 
 ## 3. Functional Requirements (CLI)
-### 3.1 Launch & Session State
+### 3.1 Launch & Session State *(Supports user stories US-01 & US-06)*
 - Command: `ebenezer-go [--sheet SHEETNAME] [FILE]`, exposed via Cobra root command so subcommands (e.g., `ebenezer-go config`, `ebenezer-go mcp serve`) can reuse shared flags.
 - If `FILE` omitted, start with in-memory workbook named `untitled.xlsx` and prompt to save on exit.
 - Maintain session state struct (`AppState`) containing workbook handle, active sheet, cursor position (`row`, `col`), yank buffer, filename history, config, and abort controller.
@@ -40,7 +43,8 @@ Key workflows:
 - `ps`: prompt with sheet list, switch when valid choice made, and allow `ps <name>` for non-interactive environments. Sheet list should be sourced from the current workbook and highlight the active sheet.
 - `ns`: prompt for new sheet name, validate uniqueness, create sheet, and switch focus. Support cloning an existing sheet (e.g., `ns BudgetCopy Budget` duplicates Budget into BudgetCopy).
 - `wb`: save workbook; prompt with filename history, support `.xlsx` and `.csv` (sheet-scoped writer). Support `w` (save) and `w <filename>`/`w!` (save-as/overwrite) Vim-style aliases that mirror Cobra commands `save`/`saveas`.
-- **Visual selections**: `v` toggles rectangular selections anchored at the current cell while `V` toggles whole-row selections. Arrow/goto movement expands the selection, ESC exits back to normal mode, and the status line must surface a `VISUAL <range>` summary so users can confirm what is highlighted. Editing commands (`y/x/p/d`) operate on the active selection: rectangular selections copy/cut the exact range, row selections treat the highlighted rows like Vim linewise mode, `p` replaces the selection (row selections are removed before paste), and pasting into a rectangular selection requires matching dimensions unless the clipboard holds a single cell, in which case the value/style is broadcast across the selection.
+- **Visual selections** *(Supports user story US-05)*: `v` toggles rectangular selections anchored at the current cell while `V` toggles whole-row selections. Arrow/goto movement expands the selection, ESC exits back to normal mode, and the status line must surface a `VISUAL <range>` summary so users can confirm what is highlighted. The `g` prompt must accept explicit ranges (e.g., `A1:D4`) to select without cursor dragging. Editing commands (`y/x/p/d`) operate on the active selection: rectangular selections copy/cut the exact range, row selections treat the highlighted rows like Vim linewise mode, `p` replaces the selection (row selections are removed before paste), and pasting into a rectangular selection requires matching dimensions unless the clipboard holds a single cell, in which case the value/style is broadcast across the selection.
+- **Range export** *(Supports user story US-05)*: Provide a command such as `:save-range <path>` that writes the active selection to CSV/XLSX, warning when the selection is non-rectangular and confirming the destination path. Saved extracts should preserve styles when exporting to XLSX and fall back to values for CSV.
 - **Search navigation**: `/pattern` searches forward, `?pattern` searches backward, matching substrings inside any visible cell (case-insensitive). Searches wrap around the current sheet. `n` repeats the last search in the same direction, `N` repeats in the opposite direction, and the most recent search string should pre-populate the prompt for quick refinement. When no match is found, surface a clear status error but leave the cursor at its prior location.
 - **Search navigation**: `/pattern` searches forward, `?pattern` searches backward, matching substrings inside any visible cell. Searches wrap around the current sheet. `n` repeats the last search in the same direction, `N` repeats in the opposite direction, and the most recent search string should pre-populate the prompt for quick refinement. When no match is found, surface a clear status error but leave the cursor at its prior location. Users must be able to toggle case sensitivity (`search-case sensitive|insensitive`, default insensitive) so workflows that rely on case cues remain accurate.
 - `:` (stretch goal) open Go REPL or Lua-like scripting environment (optional for parity).
@@ -50,7 +54,7 @@ Key workflows:
 - Support evaluation of Excel-compatible formulas (SUM, AVERAGE, references, ranges) within a single sheet; circular references yield warning and raw formula.
 - Provide fallback when a formula cannot be evaluated (log error, display `#ERR`). Because Excelize’s runtime evaluation can carry meaningful overhead, formula evaluation may be shipped as an optional/experimental feature flag without blocking the core CLI milestone.
 
-### 3.6 Formatting & Styling Integrity
+### 3.6 Formatting & Styling Integrity *(Supports user story US-02)*
 - All CLI operations must preserve existing cell formatting (fonts, fills, borders, number formats, conditional formatting, merged cells) unless a future feature explicitly edits style metadata.
 - Editing commands (`i`, paste, formula updates) must only change cell content/formula, leaving style IDs untouched.
 - Structural commands (`O`, `o`, `P`, `p`, `yy`, `xx`, `yc`, `xc`, `dc`, etc.) copy both values and associated style information so that newly created rows/columns inherit the source styling.
@@ -61,11 +65,16 @@ Key workflows:
 - When loading an existing `.xlsx`, default the active cursor to the workbook’s last selected cell (Excel’s “last edit position”) whenever that metadata exists; fall back to `A1` otherwise. Persist active-cell changes when saving back so Excel reopens at the user’s last location.
 - Add `style copy [range]` / `style paste [range]` commands (and keyboard shortcuts) that copy formatting from a cell/range and apply it to another cell/range, mirroring Excel’s Format Painter behavior. Support rectangular ranges; when sizes differ, pasting a single-source style should fill any destination range.
 
-### 3.7 Column Search & History
+### 3.7 Column Search & History *(Supports user stories US-03 & US-06)*
 - Maintain last-search string and revisit via `fi` prompt history as well as modal shortcuts (`/`, `?`, `n`, `N`).
 - Provide user-friendly navigation: after populating results, the user selects via arrow keys or enters a coordinate.
 
-- Maintain MRU filename list (max configurable, default 5) in memory; persist via Viper-managed config file (default `$XDG_CONFIG_HOME/ebenezer/config.yaml`) for future sessions.
+- Maintain MRU filename list (max configurable, default 5) in memory; persist via Viper-managed config file (default `$XDG_CONFIG_HOME/ebenezer/config.yaml`) for future sessions. *(User story US-06)*
+
+### 3.8 Workbook Metadata & Info Command *(Supports user story US-07)*
+- Provide `ebenezer info <file>` plus an interactive `:info` (and shortcut) that enumerate worksheets, row/column counts, cursor history, format metadata, file size/timestamps, and optional details on demand.
+- Default output must remain concise, with a `--details` flag (or equivalent) that augments the report with named ranges, style usage counts, delimiter/quote info, and any extra metadata the user requests.
+- Emit both human-readable tables and structured JSON log lines so external tooling can ingest the same report.
 
 **Future Extensions**
 - Allow optional regex-powered searches (case-sensitive toggle) for power users who need pattern matching beyond substring checks.
@@ -134,7 +143,7 @@ pkg/mcp/server.go           // MCP server implementation (Phase 2)
 - Provide `make build` (cross-compiles), `make lint`, `make test`.
 - Optional `brew`/`scoop` formulas once stable.
 
-## 13. MCP Server Extension (Phase 2)
+## 13. MCP Server Extension (Phase 2) *(Supports user story US-04)*
 ### 13.1 Goals
 - Allow CLI agents to open workbooks, query metadata, and perform mutations through structured messages instead of terminal keypresses.
 - Keep feature parity with human CLI operations but expose them as idempotent RPC-style calls.

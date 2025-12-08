@@ -37,15 +37,15 @@ This plan translates the high-level requirements captured in `SPEC.md` into scop
 Deliverable: Minimum usable CLI covering §3.1–3.4, §8 basics.
 
 Tasks:
-1. [x] **App State & Lifecycle** (`internal/app/state.go`): implement state + sample workbook loader. *(Filename history still future work.)*
-2. [~] **Workbook I/O** (`internal/workbook/io.go`): CSV + Excelize-based `.xlsx` loading done; saving, delimiter overrides, and style snapshots still pending.
+1. [x] **App State & Lifecycle** (`internal/app/state.go`): implement state + sample workbook loader. *(Filename history still future work.)* **(US-06)**
+2. [~] **Workbook I/O** (`internal/workbook/io.go`): CSV + Excelize-based `.xlsx` loading done; saving, delimiter overrides, and style snapshots still pending. **(US-02, US-05)**
 3. [ ] **Terminal Raw Mode** (`internal/ui/terminal.go`): not started (current demo uses lifted keyboard loop only).
 4. [ ] **Command Registry** (`internal/commands/registry.go`): TBD — current commands directly call state.
-5. [x] **Navigation Commands**: arrow key handlers, goto, row/column headers wired via Cobra + keyboard shortcuts.
+5. [x] **Navigation Commands**: arrow key handlers, goto, row/column headers wired via Cobra + keyboard shortcuts. **(US-01)**
 6. [~] **Editing Commands**: cell + row edit/yank/cut/paste/clear implemented; column operations and save/write flows pending.
 7. [ ] **Style Snapshot Helpers**: not started.
 8. [x] **Status Reporting** (`internal/ui/status.go`): prints cursor/value after commands.
-9. [x] **Visual Selection Mode**: rectangular (`v`) and row (`V`) selections update AppState, drive clipboard-aware `y/x/p/d`, and surface status-line summaries with ESC to exit.
+9. [x] **Visual Selection Mode**: rectangular (`v`) and row (`V`) selections update AppState, drive clipboard-aware `y/x/p/d`, and surface status-line summaries with ESC to exit. **(US-05)**
 10. [x] **Search UX Settings**: `/` `?` `n` `N` implemented with configurable case-sensitivity (default insensitive) via `search-case` command.
 
 Testing:
@@ -62,10 +62,12 @@ Scope: §3.5–3.7, §7 (history), §8 enhancements.
 
 Tasks:
 1. **Formula Engine** (`internal/formula/engine.go`): integrate excelize evaluation, fallback to `#ERR`, warn on circular refs. If Excelize’s runtime proves too heavy, ship behind an opt-in flag without blocking the milestone.
-2. **Column Search Module** (`internal/search/search.go`): regex search, match list, navigation, and Vim-style `/` `?` `n` `N` bindings that wrap around the sheet and remember the last query.
-3. **Prompt/Survey Integration**: adopt `survey` widgets for sheet picker, filename history, search result selection.
-4. **Filename History Persistence**: `internal/history/history.go` using Viper config at `$XDG_CONFIG_HOME`.
-5. **Autosave Toggle**: config flag, temp file write + rename per §9.
+2. **Column Search Module** (`internal/search/search.go`): regex search, match list, navigation, and Vim-style `/` `?` `n` `N` bindings that wrap around the sheet and remember the last query. **(US-03)**
+3. **Prompt/Survey Integration**: adopt `survey` widgets for sheet picker, filename history, search result selection. **(US-01, US-06)**
+4. **Filename History Persistence**: `internal/history/history.go` using Viper config at `$XDG_CONFIG_HOME`. **(US-06)**
+5. **Autosave Toggle**: config flag, temp file write + rename per §9. **(US-06)**
+6. **Range Selection Export**: extend `g` prompt to accept ranges, ensure selection-bound `clear/copy/cut/paste`, and implement `:save-range` for CSV/XLSX extracts. **(US-05)**
+7. **Workbook Info Command**: add `ebenezer info <file>` and `:info`/`gi` shortcuts that surface sheet lists, dimensions, cursor history, and optional metadata via a `--details` flag plus structured log output. **(US-07)**
 
 Testing:
 - Unit tests for formula success/failure paths.
