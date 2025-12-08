@@ -11,6 +11,7 @@ import (
 type Context struct {
 	State  *app.State
 	Writer io.Writer
+	Logger Logger
 }
 
 // Result captures action output in a transport-agnostic way.
@@ -36,5 +37,5 @@ func EnsureState(ctx Context) error {
 
 // NewContext is a helper for adapters to construct a Context.
 func NewContext(state *app.State, w io.Writer) Context {
-	return Context{State: state, Writer: w}
+	return Context{State: state, Writer: w, Logger: NopLogger{}}
 }

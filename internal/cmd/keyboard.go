@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 	"unicode"
 
 	"ebenezer/internal/actions"
@@ -188,7 +189,19 @@ func clearSelectionAction(c *cobra.Command) keyboard.Action {
 
 func keyboardAction(c *cobra.Command, action actions.Action, args []string) keyboard.Action {
 	return func(ctx *keyboard.Context) error {
-		_, err := executeAction(c, action, args)
+		ac := actions.NewContext(appState, c.OutOrStdout())
+		ac.Logger = actions.NopLogger{}
+		meta := action.Metadata()
+		ac.Logger.Before(ac, meta, args)
+		start := time.Now()
+		res, err := action.Exec(ac, args)
+		ac.Logger.After(ac, meta, args, res, err, time.Since(start))
+		if err != nil {
+			return err
+		}
+		if res.Message != "" {
+			fmt.Fprint(c.OutOrStdout(), res.Message)
+		}
 		return err
 	}
 }
