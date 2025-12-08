@@ -1,12 +1,7 @@
 package cmd
 
 import (
-	"errors"
-	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
-
+	"ebenezer/internal/actions"
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +22,13 @@ var saveCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		force, _ := cmd.Flags().GetBool("force")
-		return runSave(cmd, args, force)
+		extra := []string{}
+		if force {
+			extra = append(extra, "--force")
+		}
+		args = append(extra, args...)
+		_, err := executeAction(cmd, actions.Save, args)
+		return err
 	},
 }
 
@@ -37,7 +38,8 @@ var saveForceCmd = &cobra.Command{
 	Hidden: true,
 	Args:   cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runSave(cmd, args, true)
+		_, err := executeAction(cmd, actions.SaveForce, args)
+		return err
 	},
 }
 
@@ -47,7 +49,13 @@ var saveAsCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		force, _ := cmd.Flags().GetBool("force")
-		return runSave(cmd, args, force)
+		extra := []string{}
+		if force {
+			extra = append(extra, "--force")
+		}
+		args = append(extra, args...)
+		_, err := executeAction(cmd, actions.SaveAs, args)
+		return err
 	},
 }
 
@@ -57,7 +65,8 @@ var writeCmd = &cobra.Command{
 	Hidden: true,
 	Args:   cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runSave(cmd, args, false)
+		_, err := executeAction(cmd, actions.Write, args)
+		return err
 	},
 }
 
@@ -67,46 +76,7 @@ var writeForceCmd = &cobra.Command{
 	Hidden: true,
 	Args:   cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runSave(cmd, args, true)
-	},
-}
-
-func runSave(cmd *cobra.Command, args []string, force bool) error {
-	if appState.Workbook == nil {
-		return errors.New("no workbook loaded")
-	}
-	target := appState.SourcePath
-	if len(args) > 0 {
-		target = args[0]
-	}
-	if strings.TrimSpace(target) == "" {
-		return errors.New("please provide a filename")
-	}
-	if !force && shouldBlockOverwrite(target) {
-		return fmt.Errorf("%s exists (use :w! or --force)", target)
-	}
-	if err := appState.Save(target); err != nil {
+		_, err := executeAction(cmd, actions.WriteForce, args)
 		return err
-	}
-	fmt.Fprintf(cmd.OutOrStdout(), "saved %s\n", target)
-	return nil
-}
-
-func shouldBlockOverwrite(path string) bool {
-	if appState.SourcePath != "" {
-		if sameFile(path, appState.SourcePath) {
-			return false
-		}
-	}
-	_, err := os.Stat(path)
-	return err == nil
-}
-
-func sameFile(a, b string) bool {
-	aAbs, err1 := filepath.Abs(a)
-	bAbs, err2 := filepath.Abs(b)
-	if err1 != nil || err2 != nil {
-		return a == b
-	}
-	return aAbs == bAbs
+	},
 }

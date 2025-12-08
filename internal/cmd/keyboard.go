@@ -8,6 +8,7 @@ import (
 	"strings"
 	"unicode"
 
+	"ebenezer/internal/actions"
 	"ebenezer/internal/app"
 	"ebenezer/internal/ui/keyboard"
 	"ebenezer/internal/ui/status"
@@ -43,37 +44,34 @@ func runKeyboardMode(c *cobra.Command) error {
 		InfoWriter: c.ErrOrStderr(),
 		Bindings: keyboard.Bindings{
 			Keys: map[githubkeyboard.Key]keyboard.Action{
-				githubkeyboard.KeyArrowLeft:  moveAction("left"),
-				githubkeyboard.KeyArrowRight: moveAction("right"),
-				githubkeyboard.KeyArrowUp:    moveAction("up"),
-				githubkeyboard.KeyArrowDown:  moveAction("down"),
+				githubkeyboard.KeyArrowLeft:  keyboardAction(c, actions.Move, []string{"left"}),
+				githubkeyboard.KeyArrowRight: keyboardAction(c, actions.Move, []string{"right"}),
+				githubkeyboard.KeyArrowUp:    keyboardAction(c, actions.Move, []string{"up"}),
+				githubkeyboard.KeyArrowDown:  keyboardAction(c, actions.Move, []string{"down"}),
 				githubkeyboard.KeyEsc:        clearSelectionAction(c),
 			},
 			Runes: map[rune]keyboard.Action{
 				'i': insertShortcut(c),
 				'/': searchShortcut(c, false),
 				'?': searchShortcut(c, true),
-				'n': simpleCommand("search-next"),
-				'N': simpleCommand("search-prev"),
+				'n': keyboardAction(c, actions.SearchRepeatForward, nil),
+				'N': keyboardAction(c, actions.SearchRepeatBackward, nil),
 				'v': visualRangeShortcut(c),
 				'V': visualRowShortcut(c),
-				's': func(ctx *keyboard.Context) error {
-					status.Print(c.OutOrStdout(), appState)
-					return nil
-				},
+				's': keyboardAction(c, actions.Status, nil),
 				'g': gotoShortcut(c),
-				'c': columnHeaderShortcut(),
-				'r': rowHeaderShortcut(),
-				'y': simpleCommand("yank"),
-				'Y': simpleCommand("row", "yank"),
-				'x': simpleCommand("cut"),
-				'X': simpleCommand("row", "cut"),
-				'p': simpleCommand("paste"),
-				'P': simpleCommand("paste", "--before"),
-				'd': deleteCellShortcut(),
-				'D': simpleCommand("row", "delete"),
-				'O': simpleCommand("row", "insert-above"),
-				'o': simpleCommand("row", "insert-below"),
+				'c': columnHeaderShortcut(c),
+				'r': rowHeaderShortcut(c),
+				'y': keyboardAction(c, actions.Yank, nil),
+				'Y': keyboardAction(c, actions.RowYank, nil),
+				'x': keyboardAction(c, actions.Cut, nil),
+				'X': keyboardAction(c, actions.RowCut, nil),
+				'p': keyboardAction(c, actions.Paste, nil),
+				'P': keyboardAction(c, actions.Paste, []string{"--before"}),
+				'd': deleteCellShortcut(c),
+				'D': keyboardAction(c, actions.RowDelete, nil),
+				'O': keyboardAction(c, actions.RowInsertAbove, nil),
+				'o': keyboardAction(c, actions.RowInsertBelow, nil),
 			},
 		},
 	}
@@ -86,12 +84,6 @@ func runKeyboardMode(c *cobra.Command) error {
 		return err
 	}
 	return nil
-}
-
-func moveAction(direction string) keyboard.Action {
-	return func(ctx *keyboard.Context) error {
-		return ctx.Executor.ExecuteCommand([]string{"move", direction})
-	}
 }
 
 var errPromptCanceled = errors.New("prompt cancelled")
@@ -108,7 +100,8 @@ func gotoShortcut(c *cobra.Command) keyboard.Action {
 		if addr == "" {
 			return nil
 		}
-		return ctx.Executor.ExecuteCommand([]string{"goto", addr})
+		_, err = executeAction(c, actions.Goto, []string{addr})
+		return err
 	}
 }
 
@@ -153,7 +146,7 @@ func promptForAddress(c *cobra.Command) (string, error) {
 	}
 }
 
-func columnHeaderShortcut() keyboard.Action {
+func columnHeaderShortcut(c *cobra.Command) keyboard.Action {
 	return func(ctx *keyboard.Context) error {
 		match, err := expectNextRune('t')
 		if err != nil {
@@ -162,7 +155,8 @@ func columnHeaderShortcut() keyboard.Action {
 		if !match {
 			return nil
 		}
-		return ctx.Executor.ExecuteCommand([]string{"colheader"})
+		_, err = executeAction(c, actions.ColumnHeader, nil)
+		return err
 	}
 }
 
@@ -192,7 +186,14 @@ func clearSelectionAction(c *cobra.Command) keyboard.Action {
 	}
 }
 
-func rowHeaderShortcut() keyboard.Action {
+func keyboardAction(c *cobra.Command, action actions.Action, args []string) keyboard.Action {
+	return func(ctx *keyboard.Context) error {
+		_, err := executeAction(c, action, args)
+		return err
+	}
+}
+
+func rowHeaderShortcut(c *cobra.Command) keyboard.Action {
 	return func(ctx *keyboard.Context) error {
 		match, err := expectNextRune('t')
 		if err != nil {
@@ -201,7 +202,8 @@ func rowHeaderShortcut() keyboard.Action {
 		if !match {
 			return nil
 		}
-		return ctx.Executor.ExecuteCommand([]string{"rowheader"})
+		_, err = executeAction(c, actions.RowHeader, nil)
+		return err
 	}
 }
 
@@ -222,11 +224,11 @@ func searchShortcut(c *cobra.Command, reverse bool) keyboard.Action {
 		if term == "" {
 			return nil
 		}
-		args := []string{"search", term}
+		action := actions.SearchForward
 		if reverse {
-			args = []string{"search", "--reverse", term}
+			action = actions.SearchBackward
 		}
-		return ctx.Executor.ExecuteCommand(args)
+		return keyboardAction(c, action, []string{term})(ctx)
 	}
 }
 
@@ -247,11 +249,11 @@ func insertShortcut(c *cobra.Command) keyboard.Action {
 			}
 			return err
 		}
-		return ctx.Executor.ExecuteCommand([]string{"edit", value})
+		return keyboardAction(c, actions.Edit, []string{value})(ctx)
 	}
 }
 
-func deleteCellShortcut() keyboard.Action {
+func deleteCellShortcut(c *cobra.Command) keyboard.Action {
 	return func(ctx *keyboard.Context) error {
 		match, err := expectNextRune('c')
 		if err != nil {
@@ -260,7 +262,7 @@ func deleteCellShortcut() keyboard.Action {
 		if !match {
 			return nil
 		}
-		return ctx.Executor.ExecuteCommand([]string{"clear"})
+		return keyboardAction(c, actions.Clear, nil)(ctx)
 	}
 }
 

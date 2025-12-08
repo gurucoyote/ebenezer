@@ -1,9 +1,7 @@
 package cmd
 
 import (
-	"fmt"
-
-	"ebenezer/internal/workbook"
+	"ebenezer/internal/actions"
 	"github.com/spf13/cobra"
 )
 
@@ -12,13 +10,12 @@ var openCmd = &cobra.Command{
 	Short: "Open a workbook (.csv or .xlsx)",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		wb, sheets, active, err := workbook.FromFile(args[0], openSheet)
-		if err != nil {
-			return err
+		params := []string{args[0]}
+		if openSheet != "" {
+			params = append(params, "--sheet="+openSheet)
 		}
-		appState.LoadWorkbook(wb, args[0], sheets, active)
-		fmt.Fprintf(cmd.OutOrStdout(), "loaded %s [%s] (%d rows)\n", wb.Name, wb.Sheet, len(wb.Cells))
-		return nil
+		_, err := executeAction(cmd, actions.OpenFile, params)
+		return err
 	},
 }
 

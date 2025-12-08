@@ -2,13 +2,16 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+
+	"ebenezer/internal/actions"
 )
 
 var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Print the current cursor/value",
-	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Printf("%s = %q\n", appState.Address(), appState.CurrentValue())
+	RunE: func(cmd *cobra.Command, args []string) error {
+		_, err := executeAction(cmd, actions.Status, nil)
+		return err
 	},
 }
 

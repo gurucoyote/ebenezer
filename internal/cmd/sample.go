@@ -1,19 +1,16 @@
 package cmd
 
 import (
-	"fmt"
-
-	"ebenezer/internal/workbook"
+	"ebenezer/internal/actions"
 	"github.com/spf13/cobra"
 )
 
 var sampleCmd = &cobra.Command{
 	Use:   "sample",
 	Short: "Reload the built-in sample workbook",
-	Run: func(cmd *cobra.Command, args []string) {
-		wb := workbook.SampleWorkbook()
-		appState.LoadWorkbook(wb, "", []string{wb.Sheet}, "")
-		fmt.Fprintln(cmd.OutOrStdout(), "sample workbook loaded")
+	RunE: func(cmd *cobra.Command, args []string) error {
+		_, err := executeAction(cmd, actions.SampleData, nil)
+		return err
 	},
 }
 

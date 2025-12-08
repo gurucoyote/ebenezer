@@ -1,8 +1,7 @@
 package cmd
 
 import (
-	"fmt"
-
+	"ebenezer/internal/actions"
 	"github.com/spf13/cobra"
 )
 
@@ -14,45 +13,45 @@ var rowCmd = &cobra.Command{
 var rowYankCmd = &cobra.Command{
 	Use:   "yank",
 	Short: "Yank the current row into the clipboard",
-	Run: func(cmd *cobra.Command, args []string) {
-		appState.YankCurrentRow()
-		fmt.Fprintf(cmd.OutOrStdout(), "yanked row %d\n", appState.Cursor.Row)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		_, err := executeAction(cmd, actions.RowYank, nil)
+		return err
 	},
 }
 
 var rowCutCmd = &cobra.Command{
 	Use:   "cut",
 	Short: "Cut the current row into the clipboard",
-	Run: func(cmd *cobra.Command, args []string) {
-		appState.CutCurrentRow()
-		fmt.Fprintf(cmd.OutOrStdout(), "cut row %d\n", appState.Cursor.Row)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		_, err := executeAction(cmd, actions.RowCut, nil)
+		return err
 	},
 }
 
 var rowDeleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete the current row",
-	Run: func(cmd *cobra.Command, args []string) {
-		appState.DeleteCurrentRow()
-		fmt.Fprintln(cmd.OutOrStdout(), "row deleted")
+	RunE: func(cmd *cobra.Command, args []string) error {
+		_, err := executeAction(cmd, actions.RowDelete, nil)
+		return err
 	},
 }
 
 var rowInsertAboveCmd = &cobra.Command{
 	Use:   "insert-above",
 	Short: "Insert a blank row above the cursor",
-	Run: func(cmd *cobra.Command, args []string) {
-		appState.InsertRowAbove()
-		fmt.Fprintf(cmd.OutOrStdout(), "inserted row above %d\n", appState.Cursor.Row)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		_, err := executeAction(cmd, actions.RowInsertAbove, nil)
+		return err
 	},
 }
 
 var rowInsertBelowCmd = &cobra.Command{
 	Use:   "insert-below",
 	Short: "Insert a blank row below the cursor",
-	Run: func(cmd *cobra.Command, args []string) {
-		appState.InsertRowBelow()
-		fmt.Fprintf(cmd.OutOrStdout(), "inserted row below %d\n", appState.Cursor.Row)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		_, err := executeAction(cmd, actions.RowInsertBelow, nil)
+		return err
 	},
 }
 

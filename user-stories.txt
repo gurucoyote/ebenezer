@@ -1,0 +1,154 @@
+# User Stories Log
+# Append new entries below this line using the template in AGENTS.md.
+# Example:
+# ---
+# 2025-12-07T00:00:00Z - Agent Codex
+# As a ...
+---
+2025-12-07T16:20:00Z - Agent Codex
+Story ID: US-01
+As a Terminal Power User,
+I want to launch Ebenezer on any CSV/XLSX (or start a blank workbook) and stay fully in keyboard-driven control,
+So that I can clean and transform structured data quickly without touching a graphical spreadsheet.
+
+Acceptance Criteria:
+- Running `ebenezer-go [--sheet SHEETNAME] [FILE]` opens the requested workbook; omitting `FILE` creates `untitled.xlsx` and prompts to save on exit.
+- Normal mode engages immediately with the configured key-buffer timeout (250ms default); Insert mode allows freeform edits, and ESC always aborts.
+- The command/keyboard registry exposes navigation, sheet switching, row/column editing, and status prompts through shortcuts such as arrow keys, `g`, `ps`, `ns`, and `wb`, with `h`/`?` surfacing grouped help.
+
+Notes:
+- Priority: P1 (blocks US-02, US-03, US-05)
+- Tags: cli,keyboard,navigation
+- Source: SPEC.md §2, §3.1-§3.3
+- Verification:
+  - `./ebenezer --sheet Sheet1 js/test.xlsx` enters Normal mode, responds to arrow keys/`g`, and `:h` lists the registered commands.
+  - `go test ./internal/cmd -run TestKeyboardRegistry` exercises the command map.
+- Plan Link: IMPLEMENTATION_PLAN.md §Milestone 1 – Tasks 1,5,9
+---
+2025-12-07T16:20:00Z - Agent Codex
+Story ID: US-02
+As a Terminal Power User stewarding formatted workbooks,
+I want duplication, cut/copy/paste, and style tools to preserve fonts, fills, borders, and number formats,
+So that business-critical styling cues survive every CLI edit.
+
+Acceptance Criteria:
+- Structural commands (`O`, `o`, `P`, `p`, `yy`, `xx`, `yc`, `xc`, `dc`) carry both values and associated `excelize.StyleID` metadata when cloning rows, columns, or arbitrary ranges from files such as `js/test.xlsx`.
+- Helpers in `internal/workbook/styles.go` snapshot a range’s style IDs and reapply them during paste operations or when broadcasting a single cell across a selection.
+- Read-only inspection plus `style copy`/`style paste` commands describe and replicate formatting, defaulting to human-readable labels while still exposing raw RGB codes for scripts.
+- Regression tests compare style XML hashes pre/post edit on the styled fixture workbook so formatting regressions fail CI.
+
+Notes:
+- Priority: P1 (depends on US-01)
+- Tags: formatting,clipboard,quality
+- Source: SPEC.md §2 (styled regions), §3.6
+- Verification:
+  - `go test ./internal/workbook -run TestStyleSnapshots`
+  - Manual: load `js/test.xlsx`, run `:style-copy A1:B2` + `:style-paste C3:D4`, confirm fills/fonts match and style hash diff stays zero.
+- Plan Link: IMPLEMENTATION_PLAN.md §Milestone 1 – Tasks 2,7 and §Milestone 3 – Task 3
+---
+2025-12-07T16:20:00Z - Agent Codex
+Story ID: US-03
+As a Terminal Power User scanning wide data sets,
+I want fast column-wide search with repeatable navigation,
+So that I can jump between matching cells without losing context in large sheets.
+
+Acceptance Criteria:
+- `/pattern` and `?pattern` wrap search within the active sheet, pre-populate the prompt with the previous query, and surface clear errors when no match exists.
+- `n` and `N` repeat the last search forward/backward, while a `search-case` toggle flips between case-sensitive and case-insensitive workflows.
+- The `fi` prompt (or equivalent) lists search hits, lets me pick via arrows/input, and updates status lines with the selected address/value.
+- Searching a 50k-row CSV fixture completes within 500ms on baseline hardware, and the most recent query survives session history so repeated lookups don’t require retyping.
+
+Notes:
+- Priority: P1 (depends on US-01)
+- Tags: search,navigation,ux
+- Source: SPEC.md §2 (column search), §3.3, §3.7
+- Verification:
+  - `go test ./internal/search -run TestWrapSearch`
+  - Benchmark: `GOCACHE=/root/ebenezer/.cache go test ./internal/search -run BenchmarkLargeSearch -bench .`
+  - Manual: `/Revenue` then `n/N` inside `js/test.xlsx`.
+- Plan Link: IMPLEMENTATION_PLAN.md §Milestone 2 – Tasks 2,3
+---
+2025-12-07T16:20:00Z - Agent Codex
+Story ID: US-04
+As an Automation Engineer or CLI agent author,
+I want Ebenezer’s spreadsheet primitives exposed through an MCP server,
+So that my tools can script deterministic workbook edits without emulating keyboard input.
+
+Acceptance Criteria:
+- The MCP transport (stdio first) offers commands like `workspace/open`, `cursor/get|set`, `cell/edit`, structural row/column ops, sheet management, and `workbook/save`, mirroring CLI behavior and error codes.
+- Server sessions sandbox file access to the working directory by default, enforce a configurable session limit, and expose read-only mode.
+- CLI and MCP share the same action layer so behavior stays in sync, and structured telemetry events include `session`, `command`, `duration_ms`, and `status` fields for each RPC.
+- Documentation in `SPEC.md §13` and `docs/mcp.md` outlines the protocol, sandbox rules, and telemetry schema with examples.
+
+Notes:
+- Priority: P2 (depends on US-01, US-06)
+- Tags: automation,mcp,api
+- Source: SPEC.md §2 (automation persona), §13.1-§13.5
+- Verification:
+  - Integration test: `go test ./pkg/mcp -run TestWorkspaceOpen` using temp directories.
+  - Manual: `./ebenezer mcp serve` + simulated client issuing `workspace/open` and `cursor/get` while confirming logs.
+- Plan Link: IMPLEMENTATION_PLAN.md §Milestone 4 – Tasks 1-5
+---
+2025-12-07T16:20:00Z - Agent Codex
+Story ID: US-05
+As a Data Analyst working inside Ebenezer,
+I want to define a rectangular cell range (via visual selection or range-aware goto prompts) and operate on it,
+So that I can extract or manipulate specific subregions from large sheets without copying the entire workbook.
+
+Acceptance Criteria:
+- Pressing `v`/`V` creates rectangular/row selections, and the `g` prompt accepts explicit ranges like `A1:D4` to select without cursor dragging.
+- Once a range is active, `clear`, `copy`, `cut`, and `paste` operate only on the selected cells while preserving styles when applicable.
+- `:save-range <path>` (or equivalent) writes the active selection to CSV (respecting current delimiter/quotes) or XLSX (preserving styles), warning if the selection is non-rectangular.
+- The status line surfaces the selected range, and exports confirm the destination path as well as row/column counts written.
+
+Notes:
+- Priority: P3 (depends on US-01, US-02)
+- Tags: selection,export,clipboard
+- Source: SPEC.md §3.3 (visual selections), §3.6, §3.9
+- Verification:
+  - `go test ./internal/workbook -run TestRangeExport`
+  - Manual: visual-select `A1:C3` in `js/test.xlsx`, run `:save-range extract.csv`, verify file contents and style retention in XLSX output.
+- Plan Link: IMPLEMENTATION_PLAN.md §Milestone 2 – New Task “Range Selection Export (US-05)”
+---
+2025-12-07T16:20:00Z - Agent Codex
+Story ID: US-06
+As a Terminal Power User managing multiple editing sessions,
+I want Ebenezer to persist session context (cursor, yank buffer, MRU filenames, config) across commands and runs,
+So that I can resume work without rebuilding state manually every time.
+
+Acceptance Criteria:
+- `AppState` tracks workbook handle, active sheet, cursor position, yank buffer, filename history, config, and abort controller without reinitializing mid-session.
+- Filename MRU history (default 5 entries) persists via the Viper-backed config file and repopulates save/open prompts on launch.
+- Autosave and delimiter preferences round-trip through the config file and survive process restarts.
+- Session metadata participates in telemetry/log output so issues are traceable when the state machine misbehaves.
+
+Notes:
+- Priority: P1 (depends on US-01; prerequisite for US-04)
+- Tags: state,history,config
+- Source: SPEC.md §3.1, §3.7, §9
+- Verification:
+  - `go test ./internal/app -run TestAppStatePersistence` and `go test ./internal/history -run TestFilenameHistory`.
+  - Manual: open two files, confirm `:wb` prompt lists MRU entries, restart CLI, ensure history remains.
+- Plan Link: IMPLEMENTATION_PLAN.md §Milestone 1 – Task 1 and §Milestone 2 – Task 4
+---
+2025-12-07T16:35:00Z - Agent Codex
+Story ID: US-07
+As Guru Coyote, the primary Ebenezer user,
+I want an `info` command accessible both from the CLI (`ebenezer info <file>`) and inside interactive sessions (`:info` or shortcut),
+So that I can quickly discover workbook metadata (sheet list, dimensions, last cursor positions, and other requested details) without leaving the tool.
+
+Acceptance Criteria:
+- Running `./ebenezer info <workbook>` prints a summary table listing each worksheet, its row/column counts, last-known cursor cell, file format details (CSV delimiter, XLSX style info), and marks unknown fields clearly.
+- Inside keyboard mode, `:info` (and a bound shortcut like `gi`) displays the same metadata for the open workbook without closing the session.
+- The command supports a `--details` flag (or equivalent) that adds extended metadata (named ranges, style usage counts, file size/timestamps) when the user opts in, keeping default output concise.
+- Metadata results are logged in both human-friendly text and structured form (JSON line) so scripts can capture them.
+
+Notes:
+- Priority: P2 (depends on US-01, US-06)
+- Tags: metadata,inspection,discovery
+- Source: chat request by Guru Coyote
+- Verification:
+  - `./ebenezer info js/test.xlsx` lists all sheets with accurate row/column counts, cursor info, and format metadata.
+  - Interactive: open `js/test.xlsx`, run `:info`, confirm output matches CLI command.
+  - `go test ./internal/app -run TestWorkbookInfoSummary` validates metadata aggregation.
+- Plan Link: IMPLEMENTATION_PLAN.md §Milestone 2 – add task “Workbook Info Command (US-07)”
