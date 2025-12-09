@@ -33,6 +33,7 @@ While in keyboard mode:
 - `:style` describes the formatting of the current (or specified) cell.
 - `:ps` lists sheets; `:ps Sheet2` switches sheets (only for workbooks opened from disk).
 - `:` enters command mode—run commands like `status`, `open js/test.xlsx --sheet Sheet1`, `colheader`, `rowheader`, `sample`, `style B3`, `ps`, `ns ReportCopy Budget`, `style-copy A1:B2`, `style-paste C3:D4`, `save`, `saveas report.xlsx`.
+- `:colwidth show|set|auto` inspects or adjusts column widths (e.g., `:colwidth show`, `:colwidth set B 24`, `:colwidth auto A:D min=12 max=48`).
 - `q` exits keyboard mode.
 
 ### Discovery & MCP

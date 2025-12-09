@@ -64,6 +64,7 @@ Key workflows:
 - Style descriptions must default to human-readable color/format labels (e.g., “red fill,” “light green background,” “italic font”), while still offering raw RGB/ARGB codes as optional detail for scripting use.
 - When loading an existing `.xlsx`, default the active cursor to the workbook’s last selected cell (Excel’s “last edit position”) whenever that metadata exists; fall back to `A1` otherwise. Persist active-cell changes when saving back so Excel reopens at the user’s last location.
 - Add `style copy [range]` / `style paste [range]` commands (and keyboard shortcuts) that copy formatting from a cell/range and apply it to another cell/range, mirroring Excel’s Format Painter behavior. Support rectangular ranges; when sizes differ, pasting a single-source style should fill any destination range.
+- Introduce a `colwidth` action (and MCP tool) that supports `show`, `set`, and `auto` modes. `show` reports current widths for a column span, `set` applies explicit widths, and `auto` runs a heuristic (longest line × character factor + padding, optional min/max bounds, extra padding for multi-line cells) before persisting widths so `.xlsx` exports open with readable columns.
 
 ### 3.7 Column Search & History *(Supports user stories US-03 & US-06)*
 - Maintain last-search string and revisit via `fi` prompt history as well as modal shortcuts (`/`, `?`, `n`, `N`).

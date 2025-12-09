@@ -158,6 +158,23 @@ func TestSheetListAction(t *testing.T) {
 	}
 }
 
+func TestColumnWidthAction(t *testing.T) {
+	st := app.NewState()
+	ctx := NewContext(st, nil)
+	if _, err := ColumnWidth.Exec(ctx, []string{"show"}); err != nil {
+		t.Fatalf("colwidth show: %v", err)
+	}
+	if _, err := ColumnWidth.Exec(ctx, []string{"set", "B", "21"}); err != nil {
+		t.Fatalf("colwidth set: %v", err)
+	}
+	if width, ok := st.Workbook.ColumnWidth(2); !ok || width != 21 {
+		t.Fatalf("expected column 2 width 21, got %.2f ok=%v", width, ok)
+	}
+	if _, err := ColumnWidth.Exec(ctx, []string{"auto", "A:C", "min=12", "max=32"}); err != nil {
+		t.Fatalf("colwidth auto: %v", err)
+	}
+}
+
 func TestSearchCaseAction(t *testing.T) {
 	st := app.NewState()
 	ctx := NewContext(st, nil)
