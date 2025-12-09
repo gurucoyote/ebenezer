@@ -127,6 +127,39 @@ func TestWorkspaceLifecycleTools(t *testing.T) {
 		t.Fatalf("unexpected column delete response %+v", colResp)
 	}
 
+	colWidthShow := mustCall(t, handler.columnWidthTool, map[string]any{
+		"session_id": openPayload.SessionID,
+		"mode":       "show",
+	})
+	var widthResp columnWidthResponse
+	decodeResult(t, colWidthShow, &widthResp)
+	if len(widthResp.Columns) == 0 {
+		t.Fatalf("expected width metadata, got %+v", widthResp)
+	}
+
+	colWidthSet := mustCall(t, handler.columnWidthTool, map[string]any{
+		"session_id": openPayload.SessionID,
+		"mode":       "set",
+		"columns":    "B",
+		"width":      28,
+	})
+	decodeResult(t, colWidthSet, &widthResp)
+	if len(widthResp.Columns) != 1 || widthResp.Columns[0].Width != 28 {
+		t.Fatalf("expected explicit width set response, got %+v", widthResp)
+	}
+
+	colWidthAuto := mustCall(t, handler.columnWidthTool, map[string]any{
+		"session_id": openPayload.SessionID,
+		"mode":       "auto",
+		"columns":    "A:C",
+		"min_width":  12,
+		"max_width":  40,
+	})
+	decodeResult(t, colWidthAuto, &widthResp)
+	if len(widthResp.Columns) != 3 {
+		t.Fatalf("expected auto width to touch three columns, got %+v", widthResp)
+	}
+
 	selSet := mustCall(t, handler.selectionSetTool, map[string]any{
 		"session_id": openPayload.SessionID,
 		"range":      "A1:B2",

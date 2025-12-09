@@ -175,6 +175,22 @@ func newServer(opts Options) *server.MCPServer {
 	)
 	s.AddTool(
 		mcp.NewTool(
+			"column_width",
+			mcp.WithDescription("Inspect or set column widths (show|set|auto)."),
+			mcp.WithString("session_id", mcp.Required(), mcp.Description("Session identifier")),
+			mcp.WithString("mode", mcp.Required(), mcp.Description("show|set|auto")),
+			mcp.WithString("columns", mcp.Description("Optional column span such as A:D or 2:4")),
+			mcp.WithNumber("width", mcp.Description("Width when mode=set")),
+			mcp.WithNumber("min_width", mcp.Description("Minimum width when mode=auto")),
+			mcp.WithNumber("max_width", mcp.Description("Maximum width when mode=auto")),
+			mcp.WithNumber("padding", mcp.Description("Padding added by the auto heuristic")),
+			mcp.WithNumber("bonus", mcp.Description("Multiline bonus added by the auto heuristic")),
+			mcp.WithNumber("factor", mcp.Description("Character width factor for the auto heuristic")),
+		),
+		handler.columnWidthTool,
+	)
+	s.AddTool(
+		mcp.NewTool(
 			"selection_set",
 			mcp.WithDescription("Activate a rectangular selection (e.g., A1:D4)."),
 			mcp.WithString("session_id", mcp.Required(), mcp.Description("Session identifier")),
@@ -355,6 +371,30 @@ type (
 		Sheet     string `json:"sheet"`
 		Col       int    `json:"col"`
 		Operation string `json:"operation"`
+	}
+	columnWidthArgs struct {
+		SessionID string   `json:"session_id"`
+		Mode      string   `json:"mode"`
+		Columns   string   `json:"columns"`
+		Width     float64  `json:"width"`
+		MinWidth  *float64 `json:"min_width"`
+		MaxWidth  *float64 `json:"max_width"`
+		Padding   *float64 `json:"padding"`
+		Bonus     *float64 `json:"bonus"`
+		Factor    *float64 `json:"factor"`
+	}
+	columnWidthResponse struct {
+		SessionID string             `json:"sessionId"`
+		Mode      string             `json:"mode"`
+		Range     string             `json:"range"`
+		Columns   []columnWidthEntry `json:"columns"`
+	}
+	columnWidthEntry struct {
+		Column   string  `json:"column"`
+		Index    int     `json:"index"`
+		Width    float64 `json:"width"`
+		Source   string  `json:"source"`
+		Explicit bool    `json:"explicit"`
 	}
 	clipboardGetResponse struct {
 		SessionID   string     `json:"sessionId"`
@@ -731,6 +771,102 @@ func (h *toolHandler) columnOp(ctx context.Context, req mcp.CallToolRequest, act
 		Operation: op,
 	}
 	return jsonResult(resp)
+}
+
+func (h *toolHandler) columnWidthTool(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	_ = ctx
+	var args columnWidthArgs
+	if err := decodeArgs(req.Params.Arguments, &args); err != nil {
+		return nil, err
+	}
+	mode := strings.ToLower(strings.TrimSpace(args.Mode))
+	if mode == "" {
+		return nil, errors.New("mode is required")
+	}
+	session, err := h.sessions.Get(strings.TrimSpace(args.SessionID))
+	if err != nil {
+		return nil, err
+	}
+	start, end, err := session.State.ResolveColumnSpan(strings.TrimSpace(args.Columns))
+	if err != nil {
+		return nil, err
+	}
+	var infos []app.ColumnWidthInfo
+	switch mode {
+	case "show":
+		infos, err = session.State.ColumnWidths(start, end)
+	case "set":
+		if session.ReadOnly {
+			return nil, fmt.Errorf("session %s is read-only", session.ID)
+		}
+		if args.Width <= 0 {
+			return nil, errors.New("width must be greater than zero")
+		}
+		infos, err = session.State.SetColumnWidth(start, end, args.Width)
+	case "auto":
+		if session.ReadOnly {
+			return nil, fmt.Errorf("session %s is read-only", session.ID)
+		}
+		opts := deriveWidthOptions(args)
+		if opts.MaxWidth > 0 && opts.MinWidth > opts.MaxWidth {
+			opts.MaxWidth = opts.MinWidth
+		}
+		infos, err = session.State.AutoColumnWidth(start, end, opts)
+	default:
+		return nil, fmt.Errorf("unknown column_width mode %q", mode)
+	}
+	if err != nil {
+		return nil, err
+	}
+	resp := columnWidthResponse{
+		SessionID: session.ID,
+		Mode:      mode,
+		Range:     columnRangeLabel(start, end),
+		Columns:   mapColumnWidthEntries(infos),
+	}
+	return jsonResult(resp)
+}
+
+func deriveWidthOptions(args columnWidthArgs) workbook.ColumnWidthOptions {
+	opts := workbook.DefaultColumnWidthOptions()
+	if args.MinWidth != nil {
+		opts.MinWidth = *args.MinWidth
+	}
+	if args.MaxWidth != nil {
+		opts.MaxWidth = *args.MaxWidth
+	}
+	if args.Padding != nil {
+		opts.Padding = *args.Padding
+	}
+	if args.Bonus != nil {
+		opts.MultilineBonus = *args.Bonus
+	}
+	if args.Factor != nil {
+		opts.CharacterFactor = *args.Factor
+	}
+	return opts
+}
+
+func mapColumnWidthEntries(infos []app.ColumnWidthInfo) []columnWidthEntry {
+	entries := make([]columnWidthEntry, len(infos))
+	for i, info := range infos {
+		entries[i] = columnWidthEntry{
+			Column:   workbook.ColumnName(info.Column),
+			Index:    info.Column,
+			Width:    info.Width,
+			Source:   info.Source,
+			Explicit: info.Explicit,
+		}
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Index < entries[j].Index })
+	return entries
+}
+
+func columnRangeLabel(start, end int) string {
+	if start == end {
+		return workbook.ColumnName(start)
+	}
+	return fmt.Sprintf("%s:%s", workbook.ColumnName(start), workbook.ColumnName(end))
 }
 
 func (h *toolHandler) selectionExportTool(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
