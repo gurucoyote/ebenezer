@@ -32,6 +32,7 @@ This document gives CLI coding agents the context they need to work effectively 
 ## Git & Commit Guidance
 - Use Conventional Commit prefixes (`feat:`, `fix:`, `docs:`, `test:`, etc.).
 - Keep commits scoped: update code + docs/tests together; don’t mix unrelated changes.
+- Each discrete work step should land as an atomic commit with a meaningful message (continue using Conventional Commit prefixes). If you discover mid-task that another logical change is required, finish the current commit first before starting a new scoped commit.
 - Never remove or alter user modifications outside your scope; check `git status` before editing shared files.
 
 ## Agent Tips
