@@ -24,7 +24,7 @@ Key workflows:
 
 ## 3. Functional Requirements (CLI)
 ### 3.1 Launch & Session State *(Supports user stories US-01 & US-06)*
-- Command: `ebenezer-go [--sheet SHEETNAME] [FILE]`, exposed via Cobra root command so subcommands (e.g., `ebenezer-go config`, `ebenezer-go mcp serve`) can reuse shared flags.
+- Command: `ebenezer-go [--sheet SHEETNAME] [FILE]`, exposed via Cobra root command so subcommands (e.g., `ebenezer-go actions list`, `ebenezer-go mcp serve`) can reuse shared flags.
 - If `FILE` omitted, start with in-memory workbook named `untitled.xlsx` and prompt to save on exit.
 - Maintain session state struct (`AppState`) containing workbook handle, active sheet, cursor position (`row`, `col`), yank buffer, filename history, config, and abort controller.
 - Detect file format by extension; allow overriding delimiter for CSV via `--delimiter` (default `;`).
@@ -76,6 +76,11 @@ Key workflows:
 - Default output must remain concise, with a `--details` flag (or equivalent) that augments the report with named ranges, style usage counts, delimiter/quote info, and any extra metadata the user requests.
 - Emit both human-readable tables and structured JSON log lines so external tooling can ingest the same report.
 
+### 3.9 Action Discovery & MCP Entrypoints
+- Ship `ebenezer actions list` to pretty-print every registered action (name, description, category, args, idempotency) straight from `actions.Discover()`. This command is the canonical way to validate metadata before exposing behavior to MCP clients.
+- Provide `ebenezer mcp serve` to start the stdio MCP server. Even in stub form it must expose an `actions_list` tool that mirrors the CLI output so downstream automations can discover capabilities without screen scraping.
+- As additional MCP tools ship, they must call shared actions; the CLI and MCP adapters may diverge in UX but never in behavior.
+
 **Future Extensions**
 - Allow optional regex-powered searches (case-sensitive toggle) for power users who need pattern matching beyond substring checks.
 - Explore fuzzy search (e.g., Damerau-Levenshtein based) so near-miss queries still surface likely matches, especially for human-entered labels.
@@ -102,7 +107,7 @@ internal/search/search.go   // Column search utilities
 pkg/mcp/server.go           // MCP server implementation (Phase 2)
 ```
 - Use dependency injection so both CLI and MCP server share workbook + command primitives.
-- Introduce an action interface that exposes metadata (`Name`, `Description`, `Category`, argument schema) alongside the execution hook so CLI, keyboard, and MCP surfaces can discover capabilities programmatically.
+- Introduce an action interface that exposes metadata (`Name`, `Description`, `Category`, argument schema) alongside the execution hook so CLI, keyboard, and MCP surfaces can discover capabilities programmatically. The `actions.Discover()` helper serializes that metadata into the JSON schema MCP clients will request via an `actions/list` capability.
 
 ## 6. External Dependencies (tentative)
 - [`github.com/spf13/cobra`](https://github.com/spf13/cobra) to declare the CLI surface (root command plus future MCP/utility subcommands) and manage flag parsing consistently.
@@ -149,23 +154,31 @@ pkg/mcp/server.go           // MCP server implementation (Phase 2)
 - Allow CLI agents to open workbooks, query metadata, and perform mutations through structured messages instead of terminal keypresses.
 - Keep feature parity with human CLI operations but expose them as idempotent RPC-style calls.
 
-### 13.2 Protocol Surface (initial)
-| Capability | Request Fields | Response |
-|------------|----------------|----------|
-| `workspace/open` | `path`, `format`, `sheet` | session token, sheet list |
-| `cursor/get` | session token | `row`, `col`, `address`, `value`, `formula`, `computedValue` |
-| `cursor/set` | session token, address | updated cursor info |
-| `cell/edit` | session, address, `value` or `formula` | confirmation |
-| `row/insert`, `row/delete`, `column/insert`, `column/delete` | session, position | updated sheet snapshot (diff) |
-| `clipboard/paste` | session, destination, clipboard payload | confirmation |
-| `sheet/list`, `sheet/select`, `sheet/create` | session, parameters | updated session |
-| `workbook/save` | session, `path`, `format` | success + bytes written |
+### 13.2 Protocol Surface & Rollout
+The MCP surface will arrive in phases that mirror `docs/mcp-tools-plan.md`:
 
-- Sessions map 1:1 with open workbooks; when invoked from CLI, commands can call MCP handlers internally to ensure single logic path.
-- Return structured errors with machine-readable codes (e.g., `ErrSheetExists`, `ErrInvalidAddress`).
+| Phase | Capability | Request Fields | Response Summary |
+|-------|------------|----------------|------------------|
+| **P1 – Session & Cursor** | `workspace_open` | `path`, optional `sheet`, `mode` (read-only?) | `session_id`, sheet list, active sheet |
+| | `workspace_close` | `session_id` | confirmation |
+| | `workbook_save` | `session_id`, optional `path` | bytes written, path |
+| | `cursor_get` | `session_id` | `row`, `col`, `address`, `value`, `formula`, `sheet` |
+| | `cursor_set` | `session_id`, `address` | updated cursor info |
+| | `info_get` | `session_id`, optional `details` | structured workbook metadata (matches US-09 schema) |
+| **P2 – Cell & Row Ops** | `cell_edit`, `cell_clear` | `session_id`, `address`, payload | `styleStatus`, updated cell |
+| | `row_insert`, `row_delete`, `column_insert`, `column_delete` | `session_id`, position args | affected rows/cols, style info |
+| **P3 – Selection & Clipboard** | `selection_set`, `selection_clear`, `selection_export` | `session_id`, range, options | selection status, exported bytes/URI |
+| | `clipboard_get`, `clipboard_set` | `session_id`, payload | clipboard contents acknowledgment |
+| **P4 – Styling Semantics** | `style_describe`, `style_apply` | `session_id`, range/style payload | normalized style descriptors, status |
+| **P5 – Telemetry & Policy** | `log_subscribe`, policy toggles | TBD | streaming/logging handles |
+
+- Sessions map 1:1 with open workbooks and enforce sandbox rules (default working directory, optional read-only). CLI continues using the singleton AppState, but the MCP server will allocate dedicated `*app.State` instances per session.
+- Every call returns structured errors with machine-readable codes (e.g., `ErrSheetExists`, `ErrInvalidAddress`).
+- MCP clients enumerate capabilities through `actions_list`, which proxies `actions.Discover()` so the published metadata stays in sync with CLI behavior.
 
 ### 13.3 Transport & Packaging
 - Implement MCP server using stdio transport (same as Codex) for compatibility; optionally expose Unix socket/TCP later.
+- Reuse the same `mark3labs/mcp-go` server stack already exercised in `/root/roderik/cmd/mcp.go` so tooling, logging, and deployment conventions stay consistent between projects.
 - Provide feature discovery metadata so agents can list supported commands.
 - Document rate limits and concurrency model (single-threaded per session, queue requests).
 

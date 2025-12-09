@@ -39,6 +39,7 @@ This document gives CLI coding agents the context they need to work effectively 
 - For new keyboard shortcuts, wire them via `internal/cmd/keyboard.go` so they dispatch through Cobra commands; update docs accordingly.
 - If you introduce new dependencies, update `go.mod`/`go.sum` and note the reason in the PR summary.
 - Always keep `README.md`, `docs/demo.md`, and the implementation plan in sync with user-facing changes.
+- MCP-facing work must rely on the action metadata pipeline: `actions.Discover()` returns the JSON-ready schema that MCP and other headless clients will consume. Whenever you add or change an action, update its metadata, confirm `Discover()` exposes the new shape via `go test ./internal/actions`, and sanity-check the CLI surface with `./ebenezer actions list`.
 
 ## User Story Capture Helper
 - Trigger this helper whenever the user explicitly asks for a “user story”, “story card”, or similar phrasing. Confirm intent if the request is ambiguous.

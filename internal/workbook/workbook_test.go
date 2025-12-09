@@ -144,3 +144,24 @@ func TestAddSheet(t *testing.T) {
 		t.Fatalf("expected new sheets in workbook, got %v", sheets)
 	}
 }
+
+func TestInsertDeleteColumn(t *testing.T) {
+	wb := SampleWorkbook()
+	wb.InsertColumn(2)
+	if cols := len(wb.Cells[0]); cols != 4 {
+		t.Fatalf("expected header row to grow to 4 columns, got %d", cols)
+	}
+	if val := wb.Cells[1][1]; val != "" {
+		t.Fatalf("expected blank cell after column insert, got %q", val)
+	}
+	col, ok := wb.DeleteColumn(2)
+	if !ok {
+		t.Fatalf("expected delete column to succeed")
+	}
+	if len(col) != len(wb.Cells) {
+		t.Fatalf("expected removed column slice to match row count")
+	}
+	if cols := len(wb.Cells[0]); cols != 3 {
+		t.Fatalf("expected header row back to 3 columns, got %d", cols)
+	}
+}

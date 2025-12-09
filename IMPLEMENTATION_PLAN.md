@@ -19,7 +19,7 @@ This plan translates the high-level requirements captured in `SPEC.md` into scop
 | Formula Engine | Evaluation, error reporting (§3.5) | `internal/formula` | workbook |
 | Search & History | Column search, MRU filenames (§3.6) | `internal/search`, `internal/history` | UI, workbook |
 | Config & Persistence | Viper setup, MRU persistence, autosave (§3.6, §9) | `internal/config` | Cobra |
-| MCP Server | Phase 2 transport & handlers (§13) | `pkg/mcp` | shared action layer |
+| MCP Server | Phase 2 transport & handlers (§13, `docs/mcp-tools-plan.md`) | `pkg/mcp` | shared action layer |
 
 ## 2. Milestone Breakdown
 
@@ -97,11 +97,15 @@ Exit Criteria:
 Scope: §5 shared commands, §13 protocol.
 
 Tasks:
-1. **Action Abstraction Generalization**: ensure CLI commands call shared action methods accessible to MCP handlers.
-2. **MCP Transport** (`pkg/mcp/server.go`): stdio server, session manager, request routing.
-3. **Capability Implementations**: `workspace/open`, `cursor/get`/`set`, `cell/edit`, row/column ops, sheet mgmt, save.
-4. **Security Layer**: working directory sandbox, read-only mode.
-5. **Conformance Tests**: mock MCP client exercising command surface; ensure error codes align with spec table (§13.2).
+1. [x] **Action Discovery Helper**: `actions.Discover()` now serializes the registry metadata into a deterministic JSON schema for MCP `actions/list` responses, matching the expectations documented in `docs/action-metadata-plan.md`.
+2. [x] **CLI Discovery Command**: `ebenezer actions list` pretty-prints the JSON payload from `actions.Discover()` so humans/agents can sanity-check metadata without writing custom tooling.
+3. [x] **MCP Bootstrap Command**: `ebenezer mcp serve` now launches a stdio server whose first tool (`actions_list`) proxies the same JSON payload; future tools will reuse the action layer.
+4. [ ] **Phase P1 (docs/mcp-tools-plan.md)**: add session manager + `workspace_open`, `workspace_close`, `workbook_save`, `cursor_get`, `cursor_set`, and `info_get` MCP tools with matching DTOs/tests.
+5. **Action Abstraction Generalization**: ensure CLI commands call shared action methods accessible to MCP handlers.
+6. **MCP Transport** (`pkg/mcp/server.go`): stdio server, session manager, request routing.
+7. **Capability Implementations**: `workspace/open`, `cursor/get`/`set`, `cell/edit`, row/column ops, sheet mgmt, save.
+8. **Security Layer**: working directory sandbox, read-only mode.
+9. **Conformance Tests**: mock MCP client exercising command surface; ensure error codes align with spec table (§13.2).
 
 Exit Criteria:
 - CLI can optionally run `ebenezer-go mcp serve`.

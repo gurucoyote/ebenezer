@@ -21,9 +21,11 @@
 - Provide a no-op logger for tests and a hook for MCP to supply its own logger.
 
 ### M3. MCP-Facing Metadata & Discovery (4 days)
-- Serialize metadata to a JSON schema (e.g., `actions.MetadataDTO`) so MCP can expose a `actions/list` capability.
-- Add a helper (`actions.Discover() []MetadataDTO`) that MCP server will call.
-- Document any additional MCP requirements (e.g., action categories map to MCP namespaces) and ensure metadata fields cover them.
+- Serialize metadata to a JSON schema (e.g., `actions.MetadataDTO`) so MCP can expose a `actions/list` capability. **Status**: ✅ landed via `internal/actions/discover.go`.
+- Add a helper (`actions.Discover() []MetadataDTO`) that MCP server will call. The DTO includes `{name, description, category, args[], idempotent, experimental}` with JSON tags so MCP responses are machine-friendly.
+- Document any additional MCP requirements (e.g., action categories map to MCP namespaces) and ensure metadata fields cover them. The schema mirrors what `/root/roderik/cmd/mcp.go` advertises through `mark3labs/mcp-go`, so agents can reuse client assumptions across both projects.
+- Provide a JSON example in `docs/mcp-readiness-summary.md` to keep MCP consumers aligned on field naming and casing.
+- CLI and MCP parity checks now exist: `ebenezer actions list` pretty-prints the payload for humans, while the MCP `actions_list` tool streams the compact JSON for remote agents.
 
 ### M4. Testing Enhancements (5 days)
 - Expand `internal/actions/actions_test.go` to verify metadata per action (non-empty description, arg info matches expected behavior).

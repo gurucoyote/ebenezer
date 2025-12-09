@@ -28,6 +28,19 @@ type WorkbookInfo struct {
 	ActiveCell  string
 	FileSize    int64
 	ModTime     time.Time
+	Styles      StyleSummary
+}
+
+// StyleSummary aggregates formatting usage for the active workbook.
+type StyleSummary struct {
+	StyledCells    int            `json:"styledCells"`
+	FillColors     map[string]int `json:"fillColors,omitempty"`
+	FontColors     map[string]int `json:"fontColors,omitempty"`
+	NumberFormats  map[string]int `json:"numberFormats,omitempty"`
+	BorderUsage    map[string]int `json:"borderUsage,omitempty"`
+	BoldCells      int            `json:"boldCells,omitempty"`
+	ItalicCells    int            `json:"italicCells,omitempty"`
+	UnderlineCells int            `json:"underlineCells,omitempty"`
 }
 
 func (infoAction) Name() string { return "info" }
@@ -92,6 +105,15 @@ func (infoAction) Exec(ctx Context, args []string) (Result, error) {
 		if !summary.ModTime.IsZero() {
 			b.WriteString(fmt.Sprintf("modified: %s\n", summary.ModTime.Format(time.RFC3339)))
 		}
+		if summary.Styles.StyledCells > 0 {
+			b.WriteString(fmt.Sprintf("styled cells: %d\n", summary.Styles.StyledCells))
+			if len(summary.Styles.FillColors) > 0 {
+				b.WriteString(fmt.Sprintf("fill palettes: %d unique\n", len(summary.Styles.FillColors)))
+			}
+			if len(summary.Styles.NumberFormats) > 0 {
+				b.WriteString(fmt.Sprintf("number formats: %d unique\n", len(summary.Styles.NumberFormats)))
+			}
+		}
 	}
 
 	return Result{Message: b.String(), Data: summary}, nil
@@ -114,6 +136,7 @@ func buildWorkbookInfo(ctx Context, path string) (WorkbookInfo, error) {
 			ActiveCell:  active,
 			FileSize:    size,
 			ModTime:     mod,
+			Styles:      summarizeStyles(wb),
 		}, nil
 	}
 	if ctx.State.Workbook == nil {
@@ -130,7 +153,47 @@ func buildWorkbookInfo(ctx Context, path string) (WorkbookInfo, error) {
 		ActiveCell:  ctx.State.Workbook.ActiveCell,
 		FileSize:    size,
 		ModTime:     mod,
+		Styles:      summarizeStyles(ctx.State.Workbook),
 	}, nil
+}
+
+func summarizeStyles(wb *workbook.Workbook) StyleSummary {
+	if wb == nil || len(wb.Styles) == 0 {
+		return StyleSummary{}
+	}
+	summary := StyleSummary{
+		FillColors:    map[string]int{},
+		FontColors:    map[string]int{},
+		NumberFormats: map[string]int{},
+		BorderUsage:   map[string]int{},
+	}
+	for _, style := range wb.Styles {
+		summary.StyledCells++
+		if style.FillColor != "" {
+			summary.FillColors[style.FillColor]++
+		}
+		if style.FontColor != "" {
+			summary.FontColors[style.FontColor]++
+		}
+		if style.NumberFormat != "" {
+			summary.NumberFormats[style.NumberFormat]++
+		}
+		if style.Bold {
+			summary.BoldCells++
+		}
+		if style.Italic {
+			summary.ItalicCells++
+		}
+		if style.Underline {
+			summary.UnderlineCells++
+		}
+		if len(style.Borders) > 0 {
+			for edge := range style.Borders {
+				summary.BorderUsage[edge]++
+			}
+		}
+	}
+	return summary
 }
 
 func fileMeta(path string) (int64, time.Time) {

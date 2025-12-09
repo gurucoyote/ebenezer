@@ -3,6 +3,8 @@ package workbook
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 
 	excelize "github.com/xuri/excelize/v2"
@@ -66,11 +68,39 @@ func (w *Workbook) saveXLSX(path string) error {
 }
 
 func cachedStyleID(f *excelize.File, cache map[string]int, cs CellStyle) (int, error) {
-	key := fmt.Sprintf("%s|%s|%t|%t|%t", cs.FillColor, cs.FontColor, cs.Bold, cs.Italic, cs.Underline)
+	key := styleCacheKey(cs)
 	if id, ok := cache[key]; ok {
 		return id, nil
 	}
-	style := excelize.Style{}
+	es, err := buildExcelizeStyle(cs)
+	if err != nil {
+		return 0, err
+	}
+	id, err := f.NewStyle(es)
+	if err != nil {
+		return 0, fmt.Errorf("create style: %w", err)
+	}
+	cache[key] = id
+	return id, nil
+}
+
+func styleCacheKey(cs CellStyle) string {
+	var parts []string
+	parts = append(parts, cs.FillColor, cs.FontColor, cs.NumberFormat, cs.HorizontalAlign, cs.VerticalAlign)
+	parts = append(parts, strconv.FormatBool(cs.Bold), strconv.FormatBool(cs.Italic), strconv.FormatBool(cs.Underline))
+	if len(cs.Borders) > 0 {
+		keys := make([]string, 0, len(cs.Borders))
+		for edge, style := range cs.Borders {
+			keys = append(keys, fmt.Sprintf("%s:%s:%s", edge, style.Style, style.Color))
+		}
+		sort.Strings(keys)
+		parts = append(parts, strings.Join(keys, ";"))
+	}
+	return strings.Join(parts, "|")
+}
+
+func buildExcelizeStyle(cs CellStyle) (*excelize.Style, error) {
+	style := &excelize.Style{}
 	if cs.FillColor != "" {
 		style.Fill = excelize.Fill{Type: "pattern", Color: []string{"#" + cs.FillColor}, Pattern: 1}
 	}
@@ -80,12 +110,62 @@ func cachedStyleID(f *excelize.File, cache map[string]int, cs CellStyle) (int, e
 			style.Font.Underline = "single"
 		}
 	}
-	id, err := f.NewStyle(&style)
-	if err != nil {
-		return 0, fmt.Errorf("create style: %w", err)
+	if cs.NumberFormat != "" {
+		if strings.HasPrefix(cs.NumberFormat, "builtin:") {
+			idStr := strings.TrimPrefix(cs.NumberFormat, "builtin:")
+			if n, err := strconv.Atoi(idStr); err == nil {
+				style.NumFmt = n
+			}
+		} else {
+			fmtStr := cs.NumberFormat
+			style.CustomNumFmt = &fmtStr
+		}
 	}
-	cache[key] = id
-	return id, nil
+	if cs.HorizontalAlign != "" || cs.VerticalAlign != "" {
+		style.Alignment = &excelize.Alignment{}
+		if cs.HorizontalAlign != "" {
+			style.Alignment.Horizontal = cs.HorizontalAlign
+		}
+		if cs.VerticalAlign != "" {
+			style.Alignment.Vertical = cs.VerticalAlign
+		}
+	}
+	if len(cs.Borders) > 0 {
+		style.Border = []excelize.Border{}
+		keys := make([]string, 0, len(cs.Borders))
+		for edge := range cs.Borders {
+			keys = append(keys, edge)
+		}
+		sort.Strings(keys)
+		for _, edge := range keys {
+			border := cs.Borders[edge]
+			borderStyle := excelize.Border{Type: edge}
+			borderStyle.Style = borderStyleFromName(border.Style)
+			if strings.TrimSpace(border.Color) != "" {
+				borderStyle.Color = defaultColor(border.Color)
+			}
+			style.Border = append(style.Border, borderStyle)
+		}
+	}
+	return style, nil
+}
+
+func borderStyleFromName(name string) int {
+	name = strings.ToLower(strings.TrimSpace(name))
+	if strings.HasPrefix(name, "style-") {
+		if n, err := strconv.Atoi(strings.TrimPrefix(name, "style-")); err == nil {
+			return n
+		}
+	}
+	if n, err := strconv.Atoi(name); err == nil {
+		return n
+	}
+	for k, v := range borderStyleNames {
+		if v == name {
+			return k
+		}
+	}
+	return 1 // default thin
 }
 
 func defaultColor(hex string) string {

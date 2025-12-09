@@ -86,7 +86,60 @@ func extractCellStyle(f *excelize.File, sheet, axis string) (CellStyle, error) {
 		cs.Italic = font.Italic
 		cs.Underline = font.Underline != ""
 	}
+	if style.Alignment != nil {
+		if style.Alignment.Horizontal != "" {
+			cs.HorizontalAlign = style.Alignment.Horizontal
+		}
+		if style.Alignment.Vertical != "" {
+			cs.VerticalAlign = style.Alignment.Vertical
+		}
+	}
+	if style.NumFmt != 0 {
+		cs.NumberFormat = fmt.Sprintf("builtin:%d", style.NumFmt)
+	}
+	if style.CustomNumFmt != nil && *style.CustomNumFmt != "" {
+		cs.NumberFormat = *style.CustomNumFmt
+	}
+	if len(style.Border) > 0 {
+		cs.Borders = map[string]BorderStyle{}
+		for _, border := range style.Border {
+			pos := strings.ToLower(border.Type)
+			if pos == "" {
+				continue
+			}
+			cs.Borders[pos] = BorderStyle{
+				Style: borderStyleName(border.Style),
+				Color: normalizeColor(border.Color),
+			}
+		}
+	}
 	return cs, nil
+}
+
+var borderStyleNames = map[int]string{
+	1:  "thin",
+	2:  "medium",
+	3:  "dashed",
+	4:  "dotted",
+	5:  "thick",
+	6:  "double",
+	7:  "hair",
+	8:  "mediumDashed",
+	9:  "dashDot",
+	10: "mediumDashDot",
+	11: "dashDotDot",
+	12: "mediumDashDotDot",
+	13: "slantDashDot",
+}
+
+func borderStyleName(style int) string {
+	if style <= 0 {
+		return ""
+	}
+	if name, ok := borderStyleNames[style]; ok {
+		return name
+	}
+	return fmt.Sprintf("style-%d", style)
 }
 
 func normalizeColor(color string) string {

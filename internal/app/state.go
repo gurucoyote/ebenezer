@@ -124,6 +124,38 @@ func (s *State) ClearSelection() {
 	s.Selection = Selection{}
 }
 
+// SetSelectionRange activates a rectangular selection based on an A1-style range.
+func (s *State) SetSelectionRange(rangeStr string) (string, error) {
+	if s.Workbook == nil {
+		return "", errors.New("no workbook loaded")
+	}
+	startRow, startCol, endRow, endCol, err := parseRange(rangeStr)
+	if err != nil {
+		return "", err
+	}
+	if startRow < 1 {
+		startRow = 1
+	}
+	if startCol < 1 {
+		startCol = 1
+	}
+	maxRow, maxCol := s.Workbook.MaxCoords()
+	if maxRow > 0 && endRow > maxRow {
+		endRow = maxRow
+	}
+	if maxCol > 0 && endCol > maxCol {
+		endCol = maxCol
+	}
+	s.Selection = Selection{
+		Mode:   SelectionRange,
+		Anchor: Cursor{Row: startRow, Col: startCol},
+		Active: true,
+	}
+	s.Cursor = Cursor{Row: endRow, Col: endCol}
+	s.updateActiveCell()
+	return s.SelectionSummary(), nil
+}
+
 // HasSelection reports whether visual mode is currently active.
 func (s *State) HasSelection() bool {
 	return s.Selection.Active && s.Selection.Mode != SelectionNone
@@ -598,6 +630,41 @@ func (s *State) DeleteCurrentRow() {
 	s.deleteRow(s.Cursor.Row)
 }
 
+// InsertColumnLeft inserts a blank column before the cursor.
+func (s *State) InsertColumnLeft() {
+	if s.Workbook == nil {
+		return
+	}
+	s.Workbook.InsertColumn(s.Cursor.Col)
+	s.updateActiveCell()
+}
+
+// InsertColumnRight inserts a blank column after the cursor.
+func (s *State) InsertColumnRight() {
+	if s.Workbook == nil {
+		return
+	}
+	s.Workbook.InsertColumn(s.Cursor.Col + 1)
+	s.updateActiveCell()
+}
+
+// DeleteCurrentColumn removes the column at the cursor.
+func (s *State) DeleteCurrentColumn() {
+	if s.Workbook == nil {
+		return
+	}
+	if _, ok := s.Workbook.DeleteColumn(s.Cursor.Col); !ok {
+		return
+	}
+	_, maxCol := s.Workbook.MaxCoords()
+	if maxCol == 0 {
+		s.Cursor.Col = 1
+	} else if s.Cursor.Col > maxCol {
+		s.Cursor.Col = maxCol
+	}
+	s.updateActiveCell()
+}
+
 func (s *State) deleteRow(idx int) {
 	if s.Workbook == nil {
 		return
@@ -702,6 +769,25 @@ func (s *State) collectRangeValues(startRow, startCol, endRow, endCol int) ([][]
 		}
 	}
 	return values, styles
+}
+
+// ExportRange returns the values for the given range (or current cell when empty).
+func (s *State) ExportRange(rangeStr string) ([][]string, error) {
+	values, _, _, err := s.ExportRangeWithStyles(rangeStr)
+	return values, err
+}
+
+// ExportRangeWithStyles returns values, style metadata, and the normalized range string.
+func (s *State) ExportRangeWithStyles(rangeStr string) ([][]string, map[int]map[int]workbook.CellStyle, string, error) {
+	startRow, startCol, endRow, endCol, normalized, err := s.resolveRange(rangeStr)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	values, styles := s.collectRangeValues(startRow, startCol, endRow, endCol)
+	if len(values) == 0 || len(values[0]) == 0 {
+		return nil, nil, "", errors.New("invalid range dimensions")
+	}
+	return values, styles, normalized, nil
 }
 
 func (s *State) clearRange(startRow, startCol, endRow, endCol int) {
@@ -928,12 +1014,66 @@ func (s *State) PasteStyle(rangeStr string) error {
 	return nil
 }
 
+// ApplyStyles applies a payload of styles to the provided range. When the
+// payload is a single cell, it is broadcast across the destination. Otherwise
+// the payload dimensions must match the destination exactly.
+func (s *State) ApplyStyles(rangeStr string, styles [][]workbook.CellStyle) error {
+	if s.Workbook == nil {
+		return errors.New("no workbook loaded")
+	}
+	if len(styles) == 0 || len(styles[0]) == 0 {
+		return errors.New("styles payload required")
+	}
+	startRow, startCol, endRow, endCol, _, err := s.resolveRange(rangeStr)
+	if err != nil {
+		return err
+	}
+	height := endRow - startRow + 1
+	width := endCol - startCol + 1
+	payloadHeight := len(styles)
+	payloadWidth := len(styles[0])
+	single := payloadHeight == 1 && payloadWidth == 1
+	for _, row := range styles {
+		if len(row) != payloadWidth {
+			return errors.New("styles payload rows must be equal length")
+		}
+	}
+	if !single && (payloadHeight != height || payloadWidth != width) {
+		return errors.New("styles payload dimensions must match destination range")
+	}
+	for r := 0; r < height; r++ {
+		for c := 0; c < width; c++ {
+			row := startRow + r
+			col := startCol + c
+			var style workbook.CellStyle
+			if single {
+				style = styles[0][0]
+			} else {
+				style = styles[r][c]
+			}
+			s.Workbook.SetStyle(row, col, style)
+		}
+	}
+	return nil
+}
+
 func parseRangeOrDefault(rangeStr, fallback string) (int, int, int, int, error) {
 	input := strings.TrimSpace(rangeStr)
 	if input == "" {
 		input = fallback
 	}
 	return parseRange(input)
+}
+
+func (s *State) resolveRange(rangeStr string) (int, int, int, int, string, error) {
+	if s.Workbook == nil {
+		return 0, 0, 0, 0, "", errors.New("no workbook loaded")
+	}
+	startRow, startCol, endRow, endCol, err := parseRangeOrDefault(rangeStr, s.Address())
+	if err != nil {
+		return 0, 0, 0, 0, "", err
+	}
+	return startRow, startCol, endRow, endCol, formatRangeString(startRow, startCol, endRow, endCol), nil
 }
 
 func parseRange(rangeStr string) (int, int, int, int, error) {
@@ -961,4 +1101,11 @@ func parseRange(rangeStr string) (int, int, int, int, error) {
 		startCol, endCol = endCol, startCol
 	}
 	return startRow, startCol, endRow, endCol, nil
+}
+
+func formatRangeString(startRow, startCol, endRow, endCol int) string {
+	if startRow == endRow && startCol == endCol {
+		return fmt.Sprintf("%s%d", workbook.ColumnName(startCol), startRow)
+	}
+	return fmt.Sprintf("%s%d:%s%d", workbook.ColumnName(startCol), startRow, workbook.ColumnName(endCol), endRow)
 }

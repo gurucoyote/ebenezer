@@ -35,11 +35,17 @@ While in keyboard mode:
 - `:` enters command mode—run commands like `status`, `open js/test.xlsx --sheet Sheet1`, `colheader`, `rowheader`, `sample`, `style B3`, `ps`, `ns ReportCopy Budget`, `style-copy A1:B2`, `style-paste C3:D4`, `save`, `saveas report.xlsx`.
 - `q` exits keyboard mode.
 
+### Discovery & MCP
+- Run `./ebenezer actions list` to inspect every registered action (name, description, args, idempotency) as pretty JSON. This command reads directly from the action registry (`actions.Discover()`) and is the quickest way to validate new metadata before exposing it to MCP or other transports.
+- `./ebenezer mcp serve` launches the stdio-based MCP server. It currently exposes `actions_list`, `workspace_open/close`, `cursor_get/set`, `workbook_save`, `info_get`, `cell_edit`, `cell_clear`, `row_insert_above`, `row_insert_below`, `row_delete`, `column_insert_left/right`, `column_delete`, `selection_set`, `selection_clear`, `selection_export`, `clipboard_get`, `clipboard_set`, plus the new `style_describe` and `style_apply` tools for inspecting and mutating formatting. `selection_export` now mirrors both values and inline style metadata (and still supports CSV/XLSX destinations), while `clipboard_set` handles `kind=range` payloads so agents can round-trip rectangular selections. Styling semantics are documented in `docs/mcp-tools-plan.md` and expand automatically via `info_get`'s enriched payload.
+
 ## Roadmap Highlights
 See `SPEC.md` and `IMPLEMENTATION_PLAN.md` for the full set of milestones (CLI parity, styling preservation, formula evaluation, MCP server). Near-term goals include:
 1. Replacing the CSV stub with full Excelize-based workbook I/O while preserving styles.
 2. Building the modal command registry and editing commands (`i`, `yy`, `dd`, etc.).
 3. Adding targeted unit tests and automation for the Go codebase.
+
+> **Note on `docs/user-stories-status.xlsx`:** This workbook is treated as a throwaway playground for experimentation and visual demos only. `user-stories.txt` remains the single source of truth for backlog tracking, so never rely on the `.xlsx` file for documentation or planning data.
 
 ## Contributing
 - Use `go test ./...` before commits; add table-driven tests for new packages.

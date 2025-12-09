@@ -190,6 +190,42 @@ func TestSelectionSummary(t *testing.T) {
 	}
 }
 
+func TestSetSelectionRange(t *testing.T) {
+	st := NewState()
+	summary, err := st.SetSelectionRange("B2:C3")
+	if err != nil {
+		t.Fatalf("set selection: %v", err)
+	}
+	if summary != "B2:C3 (2x2)" {
+		t.Fatalf("unexpected summary: %s", summary)
+	}
+	if !st.HasSelection() {
+		t.Fatalf("expected selection to be active")
+	}
+	if st.Cursor.Row != 3 || st.Cursor.Col != 3 {
+		t.Fatalf("expected cursor at 3,3 got %d,%d", st.Cursor.Row, st.Cursor.Col)
+	}
+}
+
+func TestColumnOperationsAndExportRange(t *testing.T) {
+	st := NewState()
+	st.InsertColumnRight()
+	if _, maxCol := st.Workbook.MaxCoords(); maxCol != 4 {
+		t.Fatalf("expected max column 4 after insert")
+	}
+	st.DeleteCurrentColumn()
+	if _, maxCol := st.Workbook.MaxCoords(); maxCol != 3 {
+		t.Fatalf("expected columns shrink back to 3")
+	}
+	values, err := st.ExportRange("A2:A2")
+	if err != nil {
+		t.Fatalf("export range failed: %v", err)
+	}
+	if len(values) == 0 || len(values[0]) == 0 {
+		t.Fatalf("expected export to return data, got %+v", values)
+	}
+}
+
 func TestPasteCellIntoSelection(t *testing.T) {
 	st := NewState()
 	st.Clipboard = Clipboard{Kind: ClipboardCell, CellValue: "X"}

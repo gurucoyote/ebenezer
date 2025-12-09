@@ -186,3 +186,17 @@ func TestInfoAction(t *testing.T) {
 		t.Fatalf("expected sheet in info output, got %q", res.Message)
 	}
 }
+
+func TestColumnActions(t *testing.T) {
+	st := app.NewState()
+	ctx := NewContext(st, nil)
+	if _, err := ColumnInsertRight.Exec(ctx, nil); err != nil {
+		t.Fatalf("column insert right: %v", err)
+	}
+	if _, err := ColumnInsertLeft.Exec(ctx, nil); err != nil {
+		t.Fatalf("column insert left: %v", err)
+	}
+	if _, err := ColumnDelete.Exec(ctx, nil); err != nil {
+		t.Fatalf("column delete: %v", err)
+	}
+}

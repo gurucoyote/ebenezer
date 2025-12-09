@@ -23,9 +23,6 @@ var (
 
 func init() {
 	rootCmd.RunE = rootRun
-	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
-		status.Print(cmd.OutOrStdout(), appState)
-	}
 	rootCmd.PersistentFlags().StringVar(&rootSheet, "sheet", "", "Sheet to load when opening .xlsx files")
 }
 
@@ -48,6 +45,7 @@ func AppState() *app.State {
 }
 
 func rootRun(cmd *cobra.Command, args []string) error {
+	status.Print(cmd.OutOrStdout(), appState)
 	if len(args) > 0 {
 		if err := loadWorkbookFromArg(cmd, args[0], rootSheet); err != nil {
 			return err

@@ -6,13 +6,26 @@ import (
 )
 
 func TestCellStyleDescribe(t *testing.T) {
-	cs := CellStyle{FillColor: "FF0000", FontColor: "00FF00", Bold: true, Italic: true}
+	cs := CellStyle{
+		FillColor:       "FF0000",
+		FontColor:       "00FF00",
+		Bold:            true,
+		Italic:          true,
+		NumberFormat:    "#,##0",
+		HorizontalAlign: "center",
+		Borders: map[string]BorderStyle{
+			"top": {Style: "thin", Color: "000000"},
+		},
+	}
 	desc := cs.Describe()
 	if desc == "" || desc == "no style information" {
 		t.Fatalf("expected description, got %q", desc)
 	}
 	if !strings.Contains(desc, "red") || !strings.Contains(desc, "green") {
 		t.Fatalf("expected color names, got %q", desc)
+	}
+	if !strings.Contains(desc, "numfmt") || !strings.Contains(desc, "borders") {
+		t.Fatalf("expected number format and border info, got %q", desc)
 	}
 }
 

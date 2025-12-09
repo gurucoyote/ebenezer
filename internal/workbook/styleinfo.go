@@ -3,22 +3,35 @@ package workbook
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 )
 
 // CellStyle captures the subset of formatting we currently expose.
 type CellStyle struct {
-	FillColor string
-	FontColor string
-	Bold      bool
-	Italic    bool
-	Underline bool
+	FillColor       string                 `json:"fillColor,omitempty"`
+	FontColor       string                 `json:"fontColor,omitempty"`
+	NumberFormat    string                 `json:"numberFormat,omitempty"`
+	HorizontalAlign string                 `json:"horizontalAlign,omitempty"`
+	VerticalAlign   string                 `json:"verticalAlign,omitempty"`
+	Borders         map[string]BorderStyle `json:"borders,omitempty"`
+	Bold            bool                   `json:"bold,omitempty"`
+	Italic          bool                   `json:"italic,omitempty"`
+	Underline       bool                   `json:"underline,omitempty"`
+}
+
+// BorderStyle summarizes a border edge for a cell.
+type BorderStyle struct {
+	Style string `json:"style,omitempty"`
+	Color string `json:"color,omitempty"`
 }
 
 // Empty returns true when no styling metadata is present.
 func (c CellStyle) Empty() bool {
-	return c.FillColor == "" && c.FontColor == "" && !c.Bold && !c.Italic && !c.Underline
+	return c.FillColor == "" && c.FontColor == "" && c.NumberFormat == "" &&
+		c.HorizontalAlign == "" && c.VerticalAlign == "" && len(c.Borders) == 0 &&
+		!c.Bold && !c.Italic && !c.Underline
 }
 
 // Describe returns a human-friendly summary of the style.
@@ -39,10 +52,35 @@ func (c CellStyle) Describe() string {
 	if c.Underline {
 		parts = append(parts, "underline")
 	}
+	if c.NumberFormat != "" {
+		parts = append(parts, fmt.Sprintf("numfmt %s", c.NumberFormat))
+	}
+	if len(c.Borders) > 0 {
+		edges := make([]string, 0, len(c.Borders))
+		for edge, border := range c.Borders {
+			if border.Style != "" {
+				edges = append(edges, fmt.Sprintf("%s(%s)", edge, border.Style))
+			} else {
+				edges = append(edges, edge)
+			}
+		}
+		sort.Strings(edges)
+		parts = append(parts, fmt.Sprintf("borders %s", strings.Join(edges, ",")))
+	}
+	if c.HorizontalAlign != "" || c.VerticalAlign != "" {
+		parts = append(parts, fmt.Sprintf("align H=%s V=%s", emptySafe(c.HorizontalAlign), emptySafe(c.VerticalAlign)))
+	}
 	if len(parts) == 0 {
 		return "no style information"
 	}
 	return strings.Join(parts, ", ")
+}
+
+func emptySafe(val string) string {
+	if strings.TrimSpace(val) == "" {
+		return "default"
+	}
+	return val
 }
 
 func describeColor(hex string) string {

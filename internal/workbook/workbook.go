@@ -232,6 +232,57 @@ func (w *Workbook) DeleteRow(idx int) ([]string, bool) {
 	return removed, true
 }
 
+// InsertColumn inserts a blank column before the provided index (1-based).
+func (w *Workbook) InsertColumn(idx int) {
+	if idx < 1 {
+		idx = 1
+	}
+	maxCols := w.maxCols()
+	if maxCols == 0 {
+		maxCols = 1
+	}
+	if idx > maxCols+1 {
+		idx = maxCols + 1
+	}
+	if len(w.Cells) == 0 {
+		w.Cells = [][]string{{}}
+	}
+	for i := range w.Cells {
+		row := w.Cells[i]
+		if len(row) < idx-1 {
+			row = append(row, make([]string, idx-1-len(row))...)
+		}
+		row = append(row, "")
+		copy(row[idx:], row[idx-1:])
+		row[idx-1] = ""
+		w.Cells[i] = row
+	}
+	w.shiftStylesColumnsInsert(idx)
+}
+
+// DeleteColumn removes the column at the given index and returns a copy
+// plus a boolean indicating success.
+func (w *Workbook) DeleteColumn(idx int) ([]string, bool) {
+	if idx < 1 {
+		return nil, false
+	}
+	maxCols := w.maxCols()
+	if idx > maxCols {
+		return nil, false
+	}
+	removed := make([]string, len(w.Cells))
+	for i := range w.Cells {
+		row := w.Cells[i]
+		if idx-1 < len(row) {
+			removed[i] = row[idx-1]
+			row = append(row[:idx-1], row[idx:]...)
+			w.Cells[i] = row
+		}
+	}
+	w.shiftStylesColumnsDelete(idx)
+	return removed, true
+}
+
 // SetRow overwrites the row at the given index with the provided data,
 // expanding as needed.
 func (w *Workbook) SetRow(idx int, data []string) {
@@ -364,4 +415,59 @@ func splitAddress(address string) (col string, row int, err error) {
 		return "", 0, err
 	}
 	return letters.String(), row, nil
+}
+
+func lettersToNumber(s string) int {
+	result := 0
+	for _, r := range s {
+		if r < 'A' || r > 'Z' {
+			continue
+		}
+		result = result*26 + int(r-'A'+1)
+	}
+	if result == 0 {
+		return 1
+	}
+	return result
+}
+
+func (w *Workbook) shiftStylesColumnsInsert(idx int) {
+	if w.Styles == nil {
+		return
+	}
+	updated := make(map[string]CellStyle, len(w.Styles))
+	for addr, style := range w.Styles {
+		colLetters, row, err := splitAddress(addr)
+		if err != nil {
+			continue
+		}
+		col := lettersToNumber(colLetters)
+		if col >= idx {
+			col++
+		}
+		updated[fmt.Sprintf("%s%d", ColumnName(col), row)] = style
+	}
+	w.Styles = updated
+}
+
+func (w *Workbook) shiftStylesColumnsDelete(idx int) {
+	if w.Styles == nil {
+		return
+	}
+	updated := make(map[string]CellStyle, len(w.Styles))
+	for addr, style := range w.Styles {
+		colLetters, row, err := splitAddress(addr)
+		if err != nil {
+			continue
+		}
+		col := lettersToNumber(colLetters)
+		if col == idx {
+			continue
+		}
+		if col > idx {
+			col--
+		}
+		updated[fmt.Sprintf("%s%d", ColumnName(col), row)] = style
+	}
+	w.Styles = updated
 }

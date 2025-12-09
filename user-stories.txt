@@ -5,6 +5,50 @@
 # 2025-12-07T00:00:00Z - Agent Codex
 # As a ...
 ---
+2025-12-09T00:00:00Z - Agent Codex
+Story ID: US-11
+As an Automation Engineer orchestrating MCP-driven spreadsheet edits,
+I want copy/paste commands to expose explicit style modes (value-only, formatting-only, inherit destination),
+So that I can mimic Excel’s “Paste Special” options and avoid unintentionally overwriting destination styles.
+
+Acceptance Criteria:
+- MCP clipboard APIs accept an `include_styles` (or similar) flag so agents can yank ranges with or without formatting.
+- Paste/insert actions (e.g., `cell_edit`, row/column inserts, clipboard pastes) honor a `styleMode` argument with at least `inherit`, `source`, and `none` behaviors; defaults stay backward-compatible.
+- A request combining value data and `styleMode=inherit` pastes values while keeping destination formatting intact.
+- A request with `styleMode=source` plus `style_from` (or an inline style payload) clones the source formatting as part of the same RPC.
+- Table-driven tests cover each paste mode, and docs list the new arguments plus example payloads.
+
+Notes:
+- Priority: P4 (low)
+- Tags: mcp,clipboard,formatting
+- Source: chat request (copy/paste parity with GUI “Paste Special”)
+- Verification:
+  - Add unit tests for clipboard `include_styles` behavior and new `styleMode` permutations in MCP handlers.
+  - Manual: run an agent script that pastes values-only and confirm destination styles remain unchanged, then repeat with `styleMode=source` and verify formatting copies correctly.
+- Plan Link: IMPLEMENTATION_PLAN.md §Milestone 4 – extend MCP styling semantics (new task “Paste Special parity (US-11)”).
+---
+2025-12-09T00:30:00Z - Agent Codex
+Story ID: US-12
+As a human or agent user of Ebenezer-generated spreadsheets,
+I want an easy way to set column widths to a heuristically calculated “auto width,”
+So that exported workbooks look readable without manually double-clicking every column boundary in Excel.
+
+Acceptance Criteria:
+- Provide a command (CLI action + MCP tool) that scans selected columns, estimates width based on cell contents and font assumptions (e.g., Calibri 11), and applies the result via Excelize `SetColWidth`.
+- Default behavior targets all visible columns when no range is provided; optional args allow limiting to `A:D`, a sheet name, or explicit indexes.
+- Heuristic clamps widths within configurable min/max bounds and handles multi-line cells (adds extra padding when text contains `\n`).
+- Tests cover the estimator on representative data (short headers, long descriptions, currency columns) and confirm the resulting `.xlsx` stores the expected width values.
+- Documentation explains the heuristic and how to override/opt out.
+
+Notes:
+- Priority: P4 (nice-to-have polish)
+- Tags: formatting,autowidth,mcp
+- Source: chat request (column width auto-fit parity)
+- Verification:
+  - Unit tests for the width estimator and action wiring.
+  - Manual: run the command on `docs/user-stories-status.xlsx`, reopen in Excel, and confirm columns fit contents without manual auto-fit.
+- Plan Link: IMPLEMENTATION_PLAN.md §Milestone 3/4 – add task “Heuristic column auto-width (US-12)”.
+---
 2025-12-07T16:20:00Z - Agent Codex
 Story ID: US-01
 As a Terminal Power User,
@@ -186,3 +230,24 @@ Notes:
 - Priority: P1 (depends on US-02 styling guarantees and US-09 metadata schema)
 - Tags: mcp,styling,editing
 - Plan Link: IMPLEMENTATION_PLAN.md §Milestone 4 + metadata/logging plan (M2–M4)
+2025-12-09T19:05:00Z - Agent Codex
+Story ID: US-13
+As a CLI and MCP operator polishing visually coded workbooks,
+I want to measure and set column widths directly from Ebenezer commands,
+So that I can auto-fit or explicitly size columns without dropping into external editors or scripts.
+
+Acceptance Criteria:
+- A shared helper estimates preferred widths per column based on the longest cell text (including multi-line padding) with configurable min/max clamps.
+- New CLI command(s) (`:colwidth auto`, `:colwidth set <col> <width>`, etc.) and MCP tool(s) expose both `auto` and explicit modes plus a read-only query that reports current widths.
+- Column range arguments support sheet overrides, entire-sheaf defaults, and respect the existing action metadata model (name/description/args/idempotency fields).
+- Unit tests cover the estimator against representative data (IDs, long notes, multi-line cells) and confirm width serialization via Excelize `SetColWidth`; integration tests verify the MCP tool returns structured width data before and after edits.
+- Docs (`README.md`, `SPEC.md` §13, relevant `docs/*.md`) describe the workflow and warn that demo workbooks remain non-authoritative.
+
+Notes:
+- Priority: P2
+- Tags: formatting,autowidth,mcp,cli
+- Source: user testing session (2025-12-09 workbook experiment)
+- Verification:
+  - `GOCACHE=/root/ebenezer/.cache go test ./internal/workbook ./pkg/mcp -run TestColumnWidth*`
+  - Manual: run the auto-width command on a test sheet, re-query widths via the MCP tool, and reopen the `.xlsx` in Excel to confirm the stored widths match expectations.
+---
