@@ -165,3 +165,54 @@ func TestInsertDeleteColumn(t *testing.T) {
 		t.Fatalf("expected header row back to 3 columns, got %d", cols)
 	}
 }
+
+func TestParseColumnSpec(t *testing.T) {
+	cases := map[string][2]int{
+		"A":      {1, 1},
+		"B:D":    {2, 4},
+		"3":      {3, 3},
+		"A1:D20": {1, 4},
+		"d:b":    {2, 4},
+	}
+	for input, want := range cases {
+		start, end, err := ParseColumnSpec(input)
+		if err != nil {
+			t.Fatalf("ParseColumnSpec(%s) unexpected error: %v", input, err)
+		}
+		if start != want[0] || end != want[1] {
+			t.Fatalf("ParseColumnSpec(%s) = %d,%d want %d,%d", input, start, end, want[0], want[1])
+		}
+	}
+}
+
+func TestColumnWidthEstimateAndSet(t *testing.T) {
+	wb := &Workbook{
+		Cells: [][]string{
+			{"Short", "Description"},
+			{"Long value", "A much longer sentence goes here"},
+			{"Multi\nline", "Two\nLines"},
+		},
+	}
+	opts := DefaultColumnWidthOptions()
+	width := wb.EstimateColumnWidth(2, opts)
+	if width <= opts.MinWidth {
+		t.Fatalf("expected width > min, got %.2f", width)
+	}
+	wb.SetColumnWidth(2, width)
+	if stored, ok := wb.ColumnWidth(2); !ok || stored != width {
+		t.Fatalf("expected stored width %.2f, got %.2f ok=%v", width, stored, ok)
+	}
+}
+
+func TestColumnWidthShiftOnInsertDelete(t *testing.T) {
+	wb := SampleWorkbook()
+	wb.SetColumnWidth(2, 22)
+	wb.InsertColumn(2)
+	if width, ok := wb.ColumnWidth(3); !ok || width != 22 {
+		t.Fatalf("expected width to shift to column 3 after insert, got %.2f ok=%v", width, ok)
+	}
+	wb.DeleteColumn(2)
+	if width, ok := wb.ColumnWidth(2); !ok || width != 22 {
+		t.Fatalf("expected width to shift back to column 2 after delete, got %.2f ok=%v", width, ok)
+	}
+}

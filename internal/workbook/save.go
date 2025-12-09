@@ -56,6 +56,23 @@ func (w *Workbook) saveXLSX(path string) error {
 		}
 	}
 
+	if len(w.ColumnWidths) > 0 {
+		cols := make([]int, 0, len(w.ColumnWidths))
+		for col, width := range w.ColumnWidths {
+			if width <= 0 {
+				continue
+			}
+			cols = append(cols, col)
+		}
+		sort.Ints(cols)
+		for _, col := range cols {
+			colName := ColumnName(col)
+			if err := f.SetColWidth(targetSheet, colName, colName, w.ColumnWidths[col]); err != nil {
+				return fmt.Errorf("set column width %s: %w", colName, err)
+			}
+		}
+	}
+
 	if cell := w.ActiveCell; cell != "" {
 		_ = f.SetPanes(targetSheet, &excelize.Panes{
 			Freeze:    false,

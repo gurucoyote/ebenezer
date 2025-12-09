@@ -12,11 +12,12 @@ import (
 
 // Workbook is a minimal in-memory representation for demo purposes.
 type Workbook struct {
-	Cells      [][]string
-	Name       string
-	Sheet      string
-	Styles     map[string]CellStyle
-	ActiveCell string
+	Cells        [][]string
+	Name         string
+	Sheet        string
+	Styles       map[string]CellStyle
+	ActiveCell   string
+	ColumnWidths map[int]float64
 }
 
 // SampleWorkbook seeds demo data without hitting the filesystem.
@@ -28,7 +29,7 @@ func SampleWorkbook() *Workbook {
 		{"Ink", "1", "$42"},
 		{"Total", "8", "$64"},
 	}
-	return &Workbook{Cells: cells, Name: "sample", Sheet: "Sheet1", Styles: map[string]CellStyle{}, ActiveCell: "A1"}
+	return &Workbook{Cells: cells, Name: "sample", Sheet: "Sheet1", Styles: map[string]CellStyle{}, ActiveCell: "A1", ColumnWidths: map[int]float64{}}
 }
 
 // FromFile loads either CSV or XLSX data into a Workbook and returns the sheet
@@ -85,7 +86,7 @@ func FromCSV(path string) (*Workbook, error) {
 		}
 		rows = append(rows, record)
 	}
-	return &Workbook{Cells: rows, Name: path, Sheet: "Sheet1", Styles: map[string]CellStyle{}, ActiveCell: "A1"}, nil
+	return &Workbook{Cells: rows, Name: path, Sheet: "Sheet1", Styles: map[string]CellStyle{}, ActiveCell: "A1", ColumnWidths: map[int]float64{}}, nil
 }
 
 func (w *Workbook) saveCSV(path string) error {
@@ -258,6 +259,7 @@ func (w *Workbook) InsertColumn(idx int) {
 		w.Cells[i] = row
 	}
 	w.shiftStylesColumnsInsert(idx)
+	w.shiftColumnWidthsInsert(idx)
 }
 
 // DeleteColumn removes the column at the given index and returns a copy
@@ -280,6 +282,7 @@ func (w *Workbook) DeleteColumn(idx int) ([]string, bool) {
 		}
 	}
 	w.shiftStylesColumnsDelete(idx)
+	w.shiftColumnWidthsDelete(idx)
 	return removed, true
 }
 
@@ -470,4 +473,41 @@ func (w *Workbook) shiftStylesColumnsDelete(idx int) {
 		updated[fmt.Sprintf("%s%d", ColumnName(col), row)] = style
 	}
 	w.Styles = updated
+}
+
+func (w *Workbook) shiftColumnWidthsInsert(idx int) {
+	if w.ColumnWidths == nil {
+		return
+	}
+	updated := make(map[int]float64, len(w.ColumnWidths)+1)
+	for col, width := range w.ColumnWidths {
+		if col >= idx {
+			updated[col+1] = width
+			continue
+		}
+		updated[col] = width
+	}
+	w.ColumnWidths = updated
+}
+
+func (w *Workbook) shiftColumnWidthsDelete(idx int) {
+	if w.ColumnWidths == nil {
+		return
+	}
+	updated := make(map[int]float64, len(w.ColumnWidths))
+	for col, width := range w.ColumnWidths {
+		if col == idx {
+			continue
+		}
+		if col > idx {
+			updated[col-1] = width
+			continue
+		}
+		updated[col] = width
+	}
+	if len(updated) == 0 {
+		w.ColumnWidths = nil
+		return
+	}
+	w.ColumnWidths = updated
 }

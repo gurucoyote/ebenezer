@@ -226,6 +226,44 @@ func TestColumnOperationsAndExportRange(t *testing.T) {
 	}
 }
 
+func TestResolveColumnSpan(t *testing.T) {
+	st := NewState()
+	start, end, err := st.ResolveColumnSpan("B:D")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if start != 2 || end != 3 {
+		t.Fatalf("expected B:D to clamp to 2,3 got %d,%d", start, end)
+	}
+	start, end, err = st.ResolveColumnSpan("A1:C20")
+	if err != nil || start != 1 || end != 3 {
+		t.Fatalf("expected A1:C20 => 1,3 got %d,%d err=%v", start, end, err)
+	}
+}
+
+func TestColumnWidthSetAndAuto(t *testing.T) {
+	st := NewState()
+	start, end, err := st.ResolveColumnSpan("B")
+	if err != nil {
+		t.Fatalf("resolve span failed: %v", err)
+	}
+	if _, err := st.SetColumnWidth(start, end, 24); err != nil {
+		t.Fatalf("set column width: %v", err)
+	}
+	if width, ok := st.Workbook.ColumnWidth(2); !ok || width != 24 {
+		t.Fatalf("expected explicit width 24, got %.2f ok=%v", width, ok)
+	}
+	opts := workbook.DefaultColumnWidthOptions()
+	opts.MinWidth = 12
+	opts.MaxWidth = 40
+	if _, err := st.AutoColumnWidth(1, 2, opts); err != nil {
+		t.Fatalf("auto column width: %v", err)
+	}
+	if width, ok := st.Workbook.ColumnWidth(1); !ok || width < opts.MinWidth {
+		t.Fatalf("expected column 1 auto width >= %.1f got %.2f ok=%v", opts.MinWidth, width, ok)
+	}
+}
+
 func TestPasteCellIntoSelection(t *testing.T) {
 	st := NewState()
 	st.Clipboard = Clipboard{Kind: ClipboardCell, CellValue: "X"}

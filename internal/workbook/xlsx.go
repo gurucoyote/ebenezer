@@ -50,13 +50,31 @@ func FromXLSX(path, sheet string) (*Workbook, []string, string, error) {
 		}
 	}
 
+	maxCols := 0
+	for _, row := range rows {
+		if len(row) > maxCols {
+			maxCols = len(row)
+		}
+	}
+	if maxCols == 0 {
+		maxCols = 1
+	}
+	columnWidths := map[int]float64{}
+	for col := 1; col <= maxCols; col++ {
+		colName := ColumnName(col)
+		if width, err := f.GetColWidth(sheetName, colName); err == nil {
+			columnWidths[col] = width
+		}
+	}
+
 	activeCell := activeCellFromSheet(f, sheetName)
 
 	return &Workbook{
-		Cells:  rows,
-		Name:   path,
-		Sheet:  sheetName,
-		Styles: styles,
+		Cells:        rows,
+		Name:         path,
+		Sheet:        sheetName,
+		Styles:       styles,
+		ColumnWidths: columnWidths,
 		ActiveCell: func() string {
 			if activeCell != "" {
 				return activeCell

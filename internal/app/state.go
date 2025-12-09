@@ -46,6 +46,14 @@ type State struct {
 	SearchCaseSensitive bool
 }
 
+// ColumnWidthInfo summarizes width metadata for a column.
+type ColumnWidthInfo struct {
+	Column   int
+	Width    float64
+	Explicit bool
+	Source   string
+}
+
 // ClipboardKind describes the type stored in the clipboard.
 type ClipboardKind int
 
@@ -663,6 +671,117 @@ func (s *State) DeleteCurrentColumn() {
 		s.Cursor.Col = maxCol
 	}
 	s.updateActiveCell()
+}
+
+// ResolveColumnSpan converts a user-provided column token (e.g., "A:D",
+// "3", "B2:G5") into inclusive column indexes, defaulting to the full sheet
+// when empty.
+func (s *State) ResolveColumnSpan(spec string) (int, int, error) {
+	if s.Workbook == nil {
+		return 0, 0, errors.New("no workbook loaded")
+	}
+	_, maxCol := s.Workbook.MaxCoords()
+	if maxCol == 0 {
+		maxCol = 1
+	}
+	trimmed := strings.TrimSpace(spec)
+	if trimmed == "" {
+		return 1, maxCol, nil
+	}
+	start, end, err := workbook.ParseColumnSpec(trimmed)
+	if err != nil {
+		return 0, 0, err
+	}
+	if start < 1 {
+		start = 1
+	}
+	if end < 1 {
+		end = 1
+	}
+	if start > maxCol {
+		start = maxCol
+	}
+	if end > maxCol {
+		end = maxCol
+	}
+	if start > end {
+		start, end = end, start
+	}
+	return start, end, nil
+}
+
+// ColumnWidths returns width metadata for a span of columns.
+func (s *State) ColumnWidths(startCol, endCol int) ([]ColumnWidthInfo, error) {
+	if s.Workbook == nil {
+		return nil, errors.New("no workbook loaded")
+	}
+	if startCol < 1 || endCol < 1 {
+		return nil, fmt.Errorf("column indexes must be >= 1")
+	}
+	if startCol > endCol {
+		startCol, endCol = endCol, startCol
+	}
+	infos := make([]ColumnWidthInfo, 0, endCol-startCol+1)
+	for col := startCol; col <= endCol; col++ {
+		width, ok := s.Workbook.ColumnWidth(col)
+		if !ok {
+			width = workbook.DefaultColumnWidth
+		}
+		infos = append(infos, ColumnWidthInfo{
+			Column:   col,
+			Width:    width,
+			Explicit: ok,
+			Source:   "current",
+		})
+	}
+	return infos, nil
+}
+
+// SetColumnWidth sets an explicit width (in Excel units) across the span.
+func (s *State) SetColumnWidth(startCol, endCol int, width float64) ([]ColumnWidthInfo, error) {
+	if s.Workbook == nil {
+		return nil, errors.New("no workbook loaded")
+	}
+	if width <= 0 {
+		return nil, fmt.Errorf("width must be greater than zero")
+	}
+	if startCol > endCol {
+		startCol, endCol = endCol, startCol
+	}
+	infos := make([]ColumnWidthInfo, 0, endCol-startCol+1)
+	for col := startCol; col <= endCol; col++ {
+		s.Workbook.SetColumnWidth(col, width)
+		infos = append(infos, ColumnWidthInfo{
+			Column:   col,
+			Width:    width,
+			Explicit: true,
+			Source:   "set",
+		})
+	}
+	return infos, nil
+}
+
+// AutoColumnWidth estimates and applies widths across the span using the
+// provided heuristic options.
+func (s *State) AutoColumnWidth(startCol, endCol int, opts workbook.ColumnWidthOptions) ([]ColumnWidthInfo, error) {
+	if s.Workbook == nil {
+		return nil, errors.New("no workbook loaded")
+	}
+	if startCol > endCol {
+		startCol, endCol = endCol, startCol
+	}
+	infos := make([]ColumnWidthInfo, 0, endCol-startCol+1)
+	for col := startCol; col <= endCol; col++ {
+		width := s.Workbook.EstimateColumnWidth(col, opts)
+		s.Workbook.SetColumnWidth(col, width)
+		infos = append(infos, ColumnWidthInfo{
+			Column:   col,
+			Width:    width,
+			Explicit: true,
+			Source:   "auto",
+		})
+	}
+	return infos, nil
 }
 
 func (s *State) deleteRow(idx int) {
