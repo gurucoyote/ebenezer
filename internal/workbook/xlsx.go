@@ -14,6 +14,7 @@ func FromXLSX(path, sheet string) (*Workbook, []string, string, error) {
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("open xlsx: %w", err)
 	}
+	sanitizeTheme(f)
 	defer f.Close()
 
 	sheets := f.GetSheetList()
@@ -89,7 +90,7 @@ func extractCellStyle(f *excelize.File, sheet, axis string) (CellStyle, error) {
 	if err != nil || idx == 0 {
 		return CellStyle{}, err
 	}
-	style, err := f.GetStyle(idx)
+	style, err := safeGetStyle(f, idx)
 	if err != nil {
 		return CellStyle{}, err
 	}
@@ -186,4 +187,37 @@ func activeCellFromSheet(f *excelize.File, sheet string) string {
 		}
 	}
 	return ""
+}
+
+// sanitizeTheme clears incomplete theme data that can cause excelize to panic
+// when resolving theme-based colors on certain workbooks.
+func sanitizeTheme(f *excelize.File) {
+	if f == nil || f.Theme == nil {
+		return
+	}
+	scheme := f.Theme.ThemeElements.ClrScheme
+	if scheme.Lt1.SysClr == nil ||
+		scheme.Dk1.SysClr == nil ||
+		scheme.Lt2.SrgbClr == nil ||
+		scheme.Dk2.SrgbClr == nil ||
+		scheme.Accent1.SrgbClr == nil ||
+		scheme.Accent2.SrgbClr == nil ||
+		scheme.Accent3.SrgbClr == nil ||
+		scheme.Accent4.SrgbClr == nil ||
+		scheme.Accent5.SrgbClr == nil ||
+		scheme.Accent6.SrgbClr == nil {
+		f.Theme = nil
+	}
+}
+
+// safeGetStyle wraps excelize.GetStyle to prevent a panic from propagating
+// when the workbook contains malformed theme or style data.
+func safeGetStyle(f *excelize.File, idx int) (style *excelize.Style, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("get style %d: %v", idx, r)
+			style = nil
+		}
+	}()
+	return f.GetStyle(idx)
 }
