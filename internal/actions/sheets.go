@@ -82,7 +82,7 @@ func (sheetSwitchAction) Exec(ctx Context, args []string) (Result, error) {
 		return Result{}, errors.New("current workbook not backed by a file; pass a filename to switch sheets")
 	}
 	sheet := args[0]
-	wb, sheets, active, err := workbook.FromFile(ctx.State.SourcePath, sheet)
+	wb, sheets, active, err := workbook.FromFile(ctx.State.SourcePath, sheet, workbook.WithCSVDelimiter(ctx.State.CSVDelimiter()))
 	if err != nil {
 		return Result{}, err
 	}
@@ -124,7 +124,7 @@ func (sheetCreateAction) Exec(ctx Context, args []string) (Result, error) {
 	if err := workbook.AddSheet(ctx.State.SourcePath, name, copyFrom); err != nil {
 		return Result{}, err
 	}
-	wb, sheets, active, err := workbook.FromFile(ctx.State.SourcePath, name)
+	wb, sheets, active, err := workbook.FromFile(ctx.State.SourcePath, name, workbook.WithCSVDelimiter(ctx.State.CSVDelimiter()))
 	if err != nil {
 		return Result{}, err
 	}

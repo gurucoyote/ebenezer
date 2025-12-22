@@ -121,7 +121,7 @@ func (infoAction) Exec(ctx Context, args []string) (Result, error) {
 
 func buildWorkbookInfo(ctx Context, path string) (WorkbookInfo, error) {
 	if strings.TrimSpace(path) != "" {
-		wb, sheets, active, err := workbook.FromFile(path, "")
+		wb, sheets, active, err := workbook.FromFile(path, "", workbook.WithCSVDelimiter(ctx.State.CSVDelimiter()))
 		if err != nil {
 			return WorkbookInfo{}, err
 		}

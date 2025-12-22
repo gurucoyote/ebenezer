@@ -38,18 +38,18 @@ Deliverable: Minimum usable CLI covering §3.1–3.4, §8 basics.
 
 Tasks:
 1. [x] **App State & Lifecycle** (`internal/app/state.go`): implement state + sample workbook loader. *(Filename history still future work.)* **(US-06)**
-2. [~] **Workbook I/O** (`internal/workbook/io.go`): CSV + Excelize-based `.xlsx` loading done; saving, delimiter overrides, and style snapshots still pending. **(US-02, US-05)**
+2. [x] **Workbook I/O** (`internal/workbook/workbook.go`, `internal/workbook/save.go`, `internal/workbook/xlsx.go`): `.csv`/`.xlsx` loading and saving (with styles/column widths) are implemented and now honor the configurable CSV delimiter override exposed via the root `--delimiter` flag. **(US-02, US-05)**
 3. [ ] **Terminal Raw Mode** (`internal/ui/terminal.go`): not started (current demo uses lifted keyboard loop only).
-4. [ ] **Command Registry** (`internal/commands/registry.go`): TBD — current commands directly call state. Even though keyboard `:` mode will keep routing through Cobra, each Cobra handler must call into the shared action registry so behavior stays reusable.
+4. [x] **Command Registry** (`internal/commands/registry.go`): actions package backed by `executeAction` adapter, registering metadata and used by Cobra and keyboard bindings. **
 5. [x] **Navigation Commands**: arrow key handlers, goto, row/column headers wired via Cobra + keyboard shortcuts. **(US-01)**
-6. [~] **Editing Commands**: cell + row edit/yank/cut/paste/clear implemented; column operations and save/write flows pending.
-7. [ ] **Style Snapshot Helpers**: not started.
+6. [x] **Editing Commands**: cell + row edit/yank/cut/paste/clear implemented while column insert/delete helpers and save/write flows already delegate to the shared action layer (`internal/actions/edit.go`, `internal/actions/rows.go`, `internal/actions/columns.go`, `internal/actions/save.go`).
+7. [x] **Style Snapshot Helpers**: range export helpers (`State.ExportRangeWithStyles`, `app.SaveRangeToFile`, `flattenStyleEntries`) and clipboard/style copy/paste logic now capture style metadata when copying/pasting or exporting ranges, satisfying the preservation requirement.
 8. [x] **Status Reporting** (`internal/ui/status.go`): prints cursor/value after commands.
 9. [x] **Visual Selection Mode**: rectangular (`v`) and row (`V`) selections update AppState, drive clipboard-aware `y/x/p/d`, and surface status-line summaries with ESC to exit. **(US-05)**
 10. [x] **Search UX Settings**: `/` `?` `n` `N` implemented with configurable case-sensitivity (default insensitive) via `search-case` command.
 
 Testing:
-- [ ] Unit tests (cursor math, clipboard, etc.).
+- [x] Unit tests (state, workbook, actions) cover cursor math, clipboard, workbooks, and MCP handlers.
 - [ ] CSV/XLSX golden tests.
 - [ ] PTY smoke tests.
 

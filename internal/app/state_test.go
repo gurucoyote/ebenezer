@@ -21,6 +21,21 @@ func TestMoveClampsWithinBounds(t *testing.T) {
 	}
 }
 
+func TestStateCSVDelimiter(t *testing.T) {
+	st := NewState()
+	if diff := st.CSVDelimiter(); diff != workbook.DefaultCSVDelimiter {
+		t.Fatalf("expected default delimiter %q, got %q", workbook.DefaultCSVDelimiter, diff)
+	}
+	st.SetCSVDelimiter(';')
+	if diff := st.CSVDelimiter(); diff != ';' {
+		t.Fatalf("expected delimiter ';', got %q", diff)
+	}
+	st.SetCSVDelimiter(0)
+	if diff := st.CSVDelimiter(); diff != workbook.DefaultCSVDelimiter {
+		t.Fatalf("expected default delimiter %q after reset, got %q", workbook.DefaultCSVDelimiter, diff)
+	}
+}
+
 func TestAddressAndValue(t *testing.T) {
 	st := NewState()
 	if got, want := st.Address(), "A1"; got != want {

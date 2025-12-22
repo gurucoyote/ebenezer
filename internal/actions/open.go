@@ -51,7 +51,7 @@ func (openAction) Exec(ctx Context, args []string) (Result, error) {
 			sheet = strings.TrimPrefix(arg, "--sheet=")
 		}
 	}
-	wb, sheets, active, err := workbook.FromFile(path, sheet)
+	wb, sheets, active, err := workbook.FromFile(path, sheet, workbook.WithCSVDelimiter(ctx.State.CSVDelimiter()))
 	if err != nil {
 		return Result{}, err
 	}

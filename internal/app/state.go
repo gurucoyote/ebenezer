@@ -44,6 +44,26 @@ type State struct {
 	lastSearchQuery     string
 	lastSearchForward   bool
 	SearchCaseSensitive bool
+	csvDelimiter        rune
+}
+
+// CSVDelimiter returns the configured delimiter (defaults to workbook.DefaultCSVDelimiter).
+func (s *State) CSVDelimiter() rune {
+	if s == nil || s.csvDelimiter == 0 {
+		return workbook.DefaultCSVDelimiter
+	}
+	return s.csvDelimiter
+}
+
+// SetCSVDelimiter updates the delimiter used for CSV load/save operations.
+func (s *State) SetCSVDelimiter(delimiter rune) {
+	if s == nil {
+		return
+	}
+	if delimiter == 0 {
+		delimiter = workbook.DefaultCSVDelimiter
+	}
+	s.csvDelimiter = delimiter
 }
 
 // ColumnWidthInfo summarizes width metadata for a column.
@@ -83,6 +103,7 @@ type StyleClipboard struct {
 // NewState initializes with sample workbook so the demo has data.
 func NewState() *State {
 	st := &State{}
+	st.csvDelimiter = workbook.DefaultCSVDelimiter
 	wb := workbook.SampleWorkbook()
 	st.LoadWorkbook(wb, "", []string{wb.Sheet}, "")
 	return st
@@ -388,7 +409,7 @@ func (s *State) Save(path string) error {
 		return errors.New("filename required")
 	}
 	s.updateActiveCell()
-	if err := s.Workbook.Save(path); err != nil {
+	if err := s.Workbook.Save(path, workbook.WithCSVDelimiter(s.CSVDelimiter())); err != nil {
 		return err
 	}
 	s.SourcePath = path

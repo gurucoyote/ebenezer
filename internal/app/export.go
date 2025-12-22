@@ -11,7 +11,7 @@ import (
 )
 
 // SaveRangeToFile persists the provided range data to a CSV or XLSX file.
-func SaveRangeToFile(values [][]string, styles map[int]map[int]workbook.CellStyle, path string) (string, int64, error) {
+func SaveRangeToFile(values [][]string, styles map[int]map[int]workbook.CellStyle, path string, opts ...workbook.CSVOption) (string, int64, error) {
 	trimmed := strings.TrimSpace(path)
 	if trimmed == "" {
 		return "", 0, errors.New("path is required")
@@ -44,7 +44,7 @@ func SaveRangeToFile(values [][]string, styles map[int]map[int]workbook.CellStyl
 		Styles:     convertRangeStyles(styles),
 		ActiveCell: "A1",
 	}
-	if err := wb.Save(trimmed); err != nil {
+	if err := wb.Save(trimmed, opts...); err != nil {
 		return "", 0, err
 	}
 	info, err := os.Stat(trimmed)

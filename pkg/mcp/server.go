@@ -906,7 +906,7 @@ func (h *toolHandler) selectionExportTool(ctx context.Context, req mcp.CallToolR
 	}
 	path := strings.TrimSpace(args.Path)
 	if path != "" {
-		format, bytesWritten, err := app.SaveRangeToFile(values, styles, path)
+		format, bytesWritten, err := app.SaveRangeToFile(values, styles, path, workbook.WithCSVDelimiter(session.State.CSVDelimiter()))
 		if err != nil {
 			return nil, err
 		}

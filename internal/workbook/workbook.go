@@ -10,6 +10,36 @@ import (
 	"strings"
 )
 
+// DefaultCSVDelimiter is the rune used when no custom delimiter is provided.
+const DefaultCSVDelimiter rune = ','
+
+// CSVOption configures CSV parsing or serialization behavior.
+type CSVOption func(*csvOptions)
+
+type csvOptions struct {
+	delimiter rune
+}
+
+// WithCSVDelimiter overrides the default rune used to split and join CSV values.
+func WithCSVDelimiter(delimiter rune) CSVOption {
+	return func(opts *csvOptions) {
+		if delimiter != 0 {
+			opts.delimiter = delimiter
+		}
+	}
+}
+
+func newCSVOptions(opts []CSVOption) csvOptions {
+	cfg := csvOptions{delimiter: DefaultCSVDelimiter}
+	for _, opt := range opts {
+		if opt == nil {
+			continue
+		}
+		opt(&cfg)
+	}
+	return cfg
+}
+
 // Workbook is a minimal in-memory representation for demo purposes.
 type Workbook struct {
 	Cells        [][]string
@@ -34,13 +64,13 @@ func SampleWorkbook() *Workbook {
 
 // FromFile loads either CSV or XLSX data into a Workbook and returns the sheet
 // names plus the workbook's last active cell (when available).
-func FromFile(path, sheet string) (*Workbook, []string, string, error) {
+func FromFile(path, sheet string, opts ...CSVOption) (*Workbook, []string, string, error) {
 	if path == "" {
 		return nil, nil, "", fmt.Errorf("path is required")
 	}
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".csv":
-		wb, err := FromCSV(path)
+		wb, err := FromCSV(path, opts...)
 		return wb, []string{"Sheet1"}, "", err
 	case ".xlsx":
 		return FromXLSX(path, sheet)
@@ -51,14 +81,15 @@ func FromFile(path, sheet string) (*Workbook, []string, string, error) {
 
 // Save writes the workbook back to the given path, choosing CSV or XLSX based
 // on extension.
-func (w *Workbook) Save(path string) error {
+func (w *Workbook) Save(path string, opts ...CSVOption) error {
 	if w == nil {
 		return fmt.Errorf("no workbook data to save")
 	}
+	csvOpts := newCSVOptions(opts)
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
 	case ".csv":
-		return w.saveCSV(path)
+		return w.saveCSV(path, csvOpts.delimiter)
 	case ".xlsx":
 		return w.saveXLSX(path)
 	default:
@@ -66,15 +97,17 @@ func (w *Workbook) Save(path string) error {
 	}
 }
 
-// FromCSV loads a CSV file into a Workbook; it uses comma delimiter for now.
-func FromCSV(path string) (*Workbook, error) {
+// FromCSV loads a CSV file into a Workbook using the provided CSV options.
+func FromCSV(path string, opts ...CSVOption) (*Workbook, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("open csv: %w", err)
 	}
 	defer file.Close()
 
+	csvOpts := newCSVOptions(opts)
 	reader := csv.NewReader(file)
+	reader.Comma = csvOpts.delimiter
 	var rows [][]string
 	for {
 		record, err := reader.Read()
@@ -89,7 +122,7 @@ func FromCSV(path string) (*Workbook, error) {
 	return &Workbook{Cells: rows, Name: path, Sheet: "Sheet1", Styles: map[string]CellStyle{}, ActiveCell: "A1", ColumnWidths: map[int]float64{}}, nil
 }
 
-func (w *Workbook) saveCSV(path string) error {
+func (w *Workbook) saveCSV(path string, delimiter rune) error {
 	file, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("create csv: %w", err)
@@ -97,6 +130,7 @@ func (w *Workbook) saveCSV(path string) error {
 	defer file.Close()
 
 	writer := csv.NewWriter(file)
+	writer.Comma = delimiter
 	defer writer.Flush()
 
 	for _, row := range w.Cells {

@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"ebenezer/internal/app"
 	"ebenezer/internal/ui/status"
@@ -17,13 +18,16 @@ var (
 		Short: "Ebenezer spreadsheet CLI (skeleton)",
 		Args:  cobra.MaximumNArgs(1),
 	}
-	appState  = app.NewState()
-	rootSheet string
+	appState         = app.NewState()
+	rootSheet        string
+	rootCSVDelimiter string
 )
 
 func init() {
 	rootCmd.RunE = rootRun
+	rootCmd.PersistentPreRunE = rootPreRun
 	rootCmd.PersistentFlags().StringVar(&rootSheet, "sheet", "", "Sheet to load when opening .xlsx files")
+	rootCmd.PersistentFlags().StringVar(&rootCSVDelimiter, "delimiter", string(workbook.DefaultCSVDelimiter), "Delimiter used when reading/writing CSV files")
 }
 
 // Execute runs the root command with the provided arguments/context.
@@ -59,11 +63,35 @@ func rootRun(cmd *cobra.Command, args []string) error {
 }
 
 func loadWorkbookFromArg(cmd *cobra.Command, path, sheet string) error {
-	wb, sheets, active, err := workbook.FromFile(path, sheet)
+	wb, sheets, active, err := workbook.FromFile(path, sheet, workbook.WithCSVDelimiter(appState.CSVDelimiter()))
 	if err != nil {
 		return err
 	}
 	appState.LoadWorkbook(wb, path, sheets, active)
 	fmt.Fprintf(cmd.OutOrStdout(), "loaded %s [%s]\n", wb.Name, wb.Sheet)
 	return nil
+}
+
+func rootPreRun(cmd *cobra.Command, args []string) error {
+	delimiter, err := parseDelimiterFlag(rootCSVDelimiter)
+	if err != nil {
+		return fmt.Errorf("invalid --delimiter value %q: %w", rootCSVDelimiter, err)
+	}
+	appState.SetCSVDelimiter(delimiter)
+	return nil
+}
+
+func parseDelimiterFlag(value string) (rune, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return workbook.DefaultCSVDelimiter, nil
+	}
+	if trimmed == `\t` {
+		return '\t', nil
+	}
+	runes := []rune(trimmed)
+	if len(runes) != 1 {
+		return 0, fmt.Errorf("delimiter must be a single character")
+	}
+	return runes[0], nil
 }

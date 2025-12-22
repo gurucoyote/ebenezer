@@ -19,6 +19,7 @@ Ebenezer is a headless-yet-interactive spreadsheet editor with a Vim-inspired wo
 # or fall back to the sample workbook
 ./ebenezer              # launches keyboard mode with the built-in sample data
 ```
+Use the root-level `--delimiter` flag to override the rune used when loading or saving CSV files (default `,`). Example: `./ebenezer --delimiter=";" data.csv` or start without a file and use `:save-range` while setting `--delimiter="|"` to persist a pipe-delimited export.
 
 While in keyboard mode:
 - Arrow keys move the cursor; output shows `→ <address> = "<value>"`.
