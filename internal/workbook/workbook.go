@@ -11,7 +11,7 @@ import (
 )
 
 // DefaultCSVDelimiter is the rune used when no custom delimiter is provided.
-const DefaultCSVDelimiter rune = ','
+const DefaultCSVDelimiter rune = ';'
 
 // CSVOption configures CSV parsing or serialization behavior.
 type CSVOption func(*csvOptions)

@@ -29,10 +29,10 @@ func TestCellOutOfBounds(t *testing.T) {
 	}
 }
 
-func TestFromCSV(t *testing.T) {
+func TestFromCSVDefaultDelimiter(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "sample.csv")
-	content := "name,qty\nwidget,3\n"
+	content := "name;qty\nwidget;3\n"
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write csv: %v", err)
 	}
@@ -57,6 +57,23 @@ func TestFromCSVWithDelimiter(t *testing.T) {
 	wb, err := FromCSV(path, WithCSVDelimiter(';'))
 	if err != nil {
 		t.Fatalf("FromCSV with delimiter failed: %v", err)
+	}
+	if got := wb.Cell(2, 2); got != "3" {
+		t.Fatalf("expected qty 3 got %s", got)
+	}
+}
+
+func TestFromCSVExplicitComma(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "sample.csv")
+	content := "name,qty\nwidget,3\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write csv: %v", err)
+	}
+
+	wb, err := FromCSV(path, WithCSVDelimiter(','))
+	if err != nil {
+		t.Fatalf("FromCSV with comma delimiter failed: %v", err)
 	}
 	if got := wb.Cell(2, 2); got != "3" {
 		t.Fatalf("expected qty 3 got %s", got)
@@ -129,7 +146,7 @@ func TestSaveCSV(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read csv: %v", err)
 	}
-	if got := string(data); !strings.Contains(got, "a,b") {
+	if got := string(data); !strings.Contains(got, "a;b") {
 		t.Fatalf("unexpected csv contents: %s", got)
 	}
 }
@@ -149,6 +166,25 @@ func TestSaveCSVWithDelimiter(t *testing.T) {
 		t.Fatalf("read csv: %v", err)
 	}
 	if got := string(data); !strings.Contains(got, "a;b") {
+		t.Fatalf("unexpected csv contents: %s", got)
+	}
+}
+
+func TestSaveCSVExplicitComma(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.csv")
+	wb := &Workbook{
+		Cells: [][]string{{"a", "b"}, {"c", "d"}},
+		Sheet: "Sheet1",
+	}
+	if err := wb.Save(path, WithCSVDelimiter(',')); err != nil {
+		t.Fatalf("save csv with comma delimiter failed: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read csv: %v", err)
+	}
+	if got := string(data); !strings.Contains(got, "a,b") {
 		t.Fatalf("unexpected csv contents: %s", got)
 	}
 }
