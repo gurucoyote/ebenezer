@@ -39,7 +39,7 @@ Deliverable: Minimum usable CLI covering §3.1–3.4, §8 basics.
 Tasks:
 1. [x] **App State & Lifecycle** (`internal/app/state.go`): implement state + sample workbook loader. *(Filename history still future work.)* **(US-06)**
 2. [x] **Workbook I/O** (`internal/workbook/workbook.go`, `internal/workbook/save.go`, `internal/workbook/xlsx.go`): `.csv`/`.xlsx` loading and saving (with styles/column widths) are implemented and now honor the configurable CSV delimiter override exposed via the root `--delimiter` flag. **(US-02, US-05)**
-3. [ ] **Terminal Raw Mode** (`internal/ui/terminal.go`): not started (current demo uses lifted keyboard loop only). See “Raw Mode Implementation Plan” below.
+3. [x] **Terminal Raw Mode** (`internal/ui/terminal.go`): new terminal controller wraps keyboard loop with x/term raw/cooked lifecycle and signal-safe restore. See “Raw Mode Implementation Plan” below.
 4. [x] **Command Registry** (`internal/commands/registry.go`): actions package backed by `executeAction` adapter, registering metadata and used by Cobra and keyboard bindings. **
 5. [x] **Navigation Commands**: arrow key handlers, goto, row/column headers wired via Cobra + keyboard shortcuts. **(US-01)**
 6. [x] **Editing Commands**: cell + row edit/yank/cut/paste/clear implemented while column insert/delete helpers and save/write flows already delegate to the shared action layer (`internal/actions/edit.go`, `internal/actions/rows.go`, `internal/actions/columns.go`, `internal/actions/save.go`).

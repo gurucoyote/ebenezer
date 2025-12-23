@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"ebenezer/internal/ui"
 	"github.com/chzyer/readline"
 	kb "github.com/eiannone/keyboard"
 )
@@ -79,6 +80,7 @@ type Loop struct {
 	QuitRunes    []rune
 	CommandRunes []rune
 	InfoWriter   io.Writer
+	Terminal     ui.TerminalController
 }
 
 // Run blocks until the context is cancelled, an error occurs, or a quit key
@@ -89,6 +91,23 @@ func (l *Loop) Run(ctx context.Context) error {
 		return errors.New("keyboard: executor is required")
 	}
 	l.ensureDefaults()
+
+	var rawErr error
+	if l.Terminal != nil {
+		rawErr = l.Terminal.EnterRaw()
+	} else {
+		term := ui.NewTerminal(int(os.Stdin.Fd()))
+		rawErr = term.EnterRaw()
+		if rawErr == nil {
+			l.Terminal = term
+		}
+	}
+	if rawErr != nil && !errors.Is(rawErr, ui.ErrNotTerminal) {
+		return fmt.Errorf("keyboard: enable raw mode: %w", rawErr)
+	}
+	if rawErr == nil && l.Terminal != nil {
+		defer l.Terminal.Restore()
+	}
 
 	if err := kb.Open(); err != nil {
 		return fmt.Errorf("keyboard: open: %w", err)
@@ -143,6 +162,13 @@ func (l *Loop) Run(ctx context.Context) error {
 }
 
 func (l *Loop) commandMode() error {
+	if l.Terminal != nil {
+		return l.Terminal.WithCooked(l.commandModePrompt)
+	}
+	return l.commandModePrompt()
+}
+
+func (l *Loop) commandModePrompt() error {
 	kb.Close()
 	defer func() {
 		if err := kb.Open(); err != nil {

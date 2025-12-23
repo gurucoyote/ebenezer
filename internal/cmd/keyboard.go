@@ -5,16 +5,20 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"os/signal"
 	"strings"
 	"time"
 	"unicode"
 
 	"ebenezer/internal/actions"
 	"ebenezer/internal/app"
+	"ebenezer/internal/ui"
 	"ebenezer/internal/ui/keyboard"
 	"ebenezer/internal/ui/status"
 	githubkeyboard "github.com/eiannone/keyboard"
 	"github.com/spf13/cobra"
+	"golang.org/x/sys/unix"
 )
 
 var keyboardCmd = &cobra.Command{
@@ -34,6 +38,19 @@ func runKeyboardMode(c *cobra.Command) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, unix.SIGTERM)
+	defer signal.Stop(sigCh)
+	go func() {
+		select {
+		case <-ctx.Done():
+		case <-sigCh:
+			cancel()
+		}
+	}()
 
 	exec := keyboard.ExecutorFunc(func(args []string) error {
 		rootCmd.SetArgs(args)
@@ -76,6 +93,8 @@ func runKeyboardMode(c *cobra.Command) error {
 			},
 		},
 	}
+
+	loop.Terminal = ui.NewTerminal(int(os.Stdin.Fd()))
 
 	if err := loop.Run(ctx); err != nil {
 		if err == keyboard.ErrQuit {
