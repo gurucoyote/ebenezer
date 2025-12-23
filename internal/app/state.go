@@ -334,6 +334,99 @@ func (s *State) Move(deltaRow, deltaCol int) {
 	s.updateActiveCell()
 }
 
+// MoveSpan moves the cursor to the next filled cell (or boundary of a filled span)
+// in the given direction, similar to Excel's Ctrl+Arrow behavior.
+func (s *State) MoveSpan(direction string) error {
+	if s.Workbook == nil {
+		return errors.New("no workbook loaded")
+	}
+	maxRow, maxCol := s.Workbook.MaxCoords()
+	if maxRow == 0 || maxCol == 0 {
+		return errors.New("workbook is empty")
+	}
+
+	var deltaRow, deltaCol int
+	switch direction {
+	case "left":
+		deltaCol = -1
+	case "right":
+		deltaCol = 1
+	case "up":
+		deltaRow = -1
+	case "down":
+		deltaRow = 1
+	default:
+		return fmt.Errorf("unknown direction %s", direction)
+	}
+
+	inBounds := func(row, col int) bool {
+		return row >= 1 && row <= maxRow && col >= 1 && col <= maxCol
+	}
+	isFilled := func(row, col int) bool {
+		return strings.TrimSpace(s.Workbook.Cell(row, col)) != ""
+	}
+
+	row, col := s.Cursor.Row, s.Cursor.Col
+	if row < 1 {
+		row = 1
+	}
+	if col < 1 {
+		col = 1
+	}
+	if row > maxRow {
+		row = maxRow
+	}
+	if col > maxCol {
+		col = maxCol
+	}
+
+	curFilled := isFilled(row, col)
+	nextRow, nextCol := row+deltaRow, col+deltaCol
+	if !inBounds(nextRow, nextCol) {
+		s.Cursor = Cursor{Row: row, Col: col}
+		s.updateActiveCell()
+		return nil
+	}
+
+	if curFilled {
+		// When already on a filled cell and the next cell is also filled, jump to the
+		// edge of the contiguous filled span.
+		if isFilled(nextRow, nextCol) {
+			for inBounds(nextRow, nextCol) && isFilled(nextRow, nextCol) {
+				row, col = nextRow, nextCol
+				nextRow, nextCol = row+deltaRow, col+deltaCol
+			}
+			s.Cursor = Cursor{Row: row, Col: col}
+			s.updateActiveCell()
+			return nil
+		}
+
+		// Otherwise, skip empty cells and land on the next filled cell (or boundary).
+		for inBounds(nextRow, nextCol) && !isFilled(nextRow, nextCol) {
+			row, col = nextRow, nextCol
+			nextRow, nextCol = row+deltaRow, col+deltaCol
+		}
+		if inBounds(nextRow, nextCol) && isFilled(nextRow, nextCol) {
+			row, col = nextRow, nextCol
+		}
+		s.Cursor = Cursor{Row: row, Col: col}
+		s.updateActiveCell()
+		return nil
+	}
+
+	// Starting from an empty cell: skip empty cells until we find filled data or hit the boundary.
+	for inBounds(nextRow, nextCol) && !isFilled(nextRow, nextCol) {
+		row, col = nextRow, nextCol
+		nextRow, nextCol = row+deltaRow, col+deltaCol
+	}
+	if inBounds(nextRow, nextCol) && isFilled(nextRow, nextCol) {
+		row, col = nextRow, nextCol
+	}
+	s.Cursor = Cursor{Row: row, Col: col}
+	s.updateActiveCell()
+	return nil
+}
+
 // CurrentValue returns the cell value at the cursor.
 func (s *State) CurrentValue() string {
 	if s.Workbook == nil {

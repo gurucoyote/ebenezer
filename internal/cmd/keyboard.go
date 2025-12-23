@@ -60,6 +60,8 @@ func runKeyboardMode(c *cobra.Command) error {
 	loop := keyboard.Loop{
 		Executor:   exec,
 		InfoWriter: c.ErrOrStderr(),
+		KeyReader:  keyReaderWithCtrlArrows(exec),
+
 		Bindings: keyboard.Bindings{
 			Keys: map[githubkeyboard.Key]keyboard.Action{
 				githubkeyboard.KeyArrowLeft:  keyboardAction(c, actions.Move, []string{"left"}),
@@ -109,6 +111,137 @@ func runKeyboardMode(c *cobra.Command) error {
 var errPromptCanceled = errors.New("prompt cancelled")
 
 var getKey = githubkeyboard.GetKey
+var pollReadable = func(timeout time.Duration) (bool, error) {
+	if timeout <= 0 {
+		return true, nil
+	}
+	ms := int(timeout / time.Millisecond)
+	if ms <= 0 {
+		ms = 1
+	}
+	fds := []unix.PollFd{{
+		Fd:     int32(os.Stdin.Fd()),
+		Events: unix.POLLIN,
+	}}
+	n, err := unix.Poll(fds, ms)
+	if err != nil {
+		return false, err
+	}
+	if n == 0 {
+		return false, nil
+	}
+	return fds[0].Revents&unix.POLLIN != 0, nil
+}
+
+type keyboardEvent struct {
+	r rune
+	k githubkeyboard.Key
+}
+
+// keyReaderWithCtrlArrows wraps github.com/eiannone/keyboard's GetKey and detects
+// Ctrl+Arrow escape sequences (e.g. ESC [ 1 ; 5 D) that the library doesn't model
+// as distinct keys. When detected, it executes the shared "move-span" command and
+// returns an empty keypress so the normal dispatch layer ignores it.
+func keyReaderWithCtrlArrows(exec keyboard.CommandExecutor) func() (rune, githubkeyboard.Key, error) {
+	var pending []keyboardEvent
+
+	type eventResult struct {
+		ev  keyboardEvent
+		err error
+	}
+
+	readNext := func(timeout time.Duration) (keyboardEvent, bool, error) {
+		ready, err := pollReadable(timeout)
+		if err != nil {
+			return keyboardEvent{}, false, err
+		}
+		if !ready {
+			return keyboardEvent{}, false, nil
+		}
+		r, k, err := getKey()
+		if err != nil {
+			return keyboardEvent{}, false, err
+		}
+		return keyboardEvent{r: r, k: k}, true, nil
+	}
+
+	return func() (rune, githubkeyboard.Key, error) {
+		if len(pending) > 0 {
+			ev := pending[0]
+			pending = pending[1:]
+			return ev.r, ev.k, nil
+		}
+
+		r, k, err := getKey()
+		if err != nil {
+			return 0, 0, err
+		}
+		ev := keyboardEvent{r: r, k: k}
+		if k != githubkeyboard.KeyEsc {
+			return r, k, nil
+		}
+
+		// Attempt to interpret Ctrl+Arrow escape sequences without blocking Esc.
+		second, ok, err := readNext(10 * time.Millisecond)
+		if err != nil {
+			return 0, 0, err
+		}
+		if !ok {
+			return ev.r, ev.k, nil
+		}
+
+		// If this isn't an escape sequence start, buffer it and treat as plain Esc.
+		if second.r != '[' {
+			pending = append(pending, second)
+			return ev.r, ev.k, nil
+		}
+
+		var seq []keyboardEvent
+		for len(seq) < 8 {
+			next, ok, err := readNext(10 * time.Millisecond)
+			if err != nil {
+				return 0, 0, err
+			}
+			if !ok {
+				break
+			}
+			seq = append(seq, next)
+			// CSI sequences terminate with a final byte in the range 0x40-0x7E.
+			if next.r >= '@' && next.r <= '~' {
+				break
+			}
+		}
+
+		// Build a minimal rune sequence we can match against.
+		var b strings.Builder
+		b.WriteRune('[')
+		for _, ev := range seq {
+			if ev.r == 0 {
+				continue
+			}
+			b.WriteRune(ev.r)
+		}
+		switch b.String() {
+		case "[1;5D":
+			_ = exec.ExecuteCommand([]string{"move-span", "left"})
+			return 0, 0, nil
+		case "[1;5C":
+			_ = exec.ExecuteCommand([]string{"move-span", "right"})
+			return 0, 0, nil
+		case "[1;5A":
+			_ = exec.ExecuteCommand([]string{"move-span", "up"})
+			return 0, 0, nil
+		case "[1;5B":
+			_ = exec.ExecuteCommand([]string{"move-span", "down"})
+			return 0, 0, nil
+		default:
+			// Unknown sequence: replay bytes after the initial Esc so they can be handled normally.
+			pending = append(pending, second)
+			pending = append(pending, seq...)
+			return ev.r, ev.k, nil
+		}
+	}
+}
 
 func gotoShortcut(c *cobra.Command) keyboard.Action {
 	return func(ctx *keyboard.Context) error {
