@@ -51,7 +51,7 @@ Tasks:
 Testing:
 - [x] Unit tests (state, workbook, actions) cover cursor math, clipboard, workbooks, and MCP handlers.
 - [x] CSV/XLSX golden tests.
-- [ ] PTY smoke tests.
+- [x] PTY smoke tests.
 
 Exit Criteria (current status):
 - Sample CSV load + navigation works via `open`/keyboard ✅.

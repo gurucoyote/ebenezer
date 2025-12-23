@@ -6,6 +6,7 @@ toolchain go1.24.4
 
 require (
 	github.com/chzyer/readline v1.5.1
+	github.com/creack/pty v1.1.21
 	github.com/eiannone/keyboard v0.0.0-20220611211555-0d226195f203
 	github.com/google/go-cmp v0.7.0
 	github.com/mark3labs/mcp-go v0.24.1
