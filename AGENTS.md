@@ -105,6 +105,8 @@ This document gives CLI coding agents the context they need to work effectively 
 
 **IMPORTANT**: This project uses **bd (beads)** for ALL issue tracking. Do NOT use markdown TODOs, task lists, or other tracking methods.
 
+**Work in direct mode by default:** bd can be slow to start its daemon and emits warnings; add `--no-daemon` to your bd commands unless you explicitly need the daemon.
+
 ### Why bd?
 
 - Dependency-aware: Track blockers and relationships between issues
@@ -114,10 +116,12 @@ This document gives CLI coding agents the context they need to work effectively 
 
 ### Quick Start
 
+**Quick note:** run bd in direct mode (`--no-daemon`) so we avoid the repeated daemon warnings.
+
 **Check for ready work:**
 
 ```bash
-bd ready --json
+bd ready --json --no-daemon
 ```
 
 **Create new issues:**

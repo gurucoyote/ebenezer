@@ -48,6 +48,7 @@ type Workbook struct {
 	Styles       map[string]CellStyle
 	ActiveCell   string
 	ColumnWidths map[int]float64
+	Warnings     []string
 }
 
 // SampleWorkbook seeds demo data without hitting the filesystem.
@@ -108,7 +109,15 @@ func FromCSV(path string, opts ...CSVOption) (*Workbook, error) {
 	csvOpts := newCSVOptions(opts)
 	reader := csv.NewReader(file)
 	reader.Comma = csvOpts.delimiter
-	var rows [][]string
+	reader.FieldsPerRecord = -1
+
+	var (
+		rows          [][]string
+		warnings      []string
+		line          int
+		referenceCols = -1
+		maxCols       int
+	)
 	for {
 		record, err := reader.Read()
 		if err == io.EOF {
@@ -117,9 +126,36 @@ func FromCSV(path string, opts ...CSVOption) (*Workbook, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read csv: %w", err)
 		}
+		line++
+		if referenceCols == -1 {
+			referenceCols = len(record)
+		} else if len(record) != referenceCols {
+			warnings = append(warnings, fmt.Sprintf("row %d has %d fields (expected %d)", line, len(record), referenceCols))
+		}
+		if len(record) > maxCols {
+			maxCols = len(record)
+		}
 		rows = append(rows, record)
 	}
-	return &Workbook{Cells: rows, Name: path, Sheet: "Sheet1", Styles: map[string]CellStyle{}, ActiveCell: "A1", ColumnWidths: map[int]float64{}}, nil
+	if len(rows) > 0 && maxCols == 0 {
+		maxCols = len(rows[0])
+	}
+	if maxCols > 0 {
+		for idx, row := range rows {
+			if len(row) < maxCols {
+				rows[idx] = append(row, make([]string, maxCols-len(row))...)
+			}
+		}
+	}
+	return &Workbook{
+		Cells:        rows,
+		Name:         path,
+		Sheet:        "Sheet1",
+		Styles:       map[string]CellStyle{},
+		ActiveCell:   "A1",
+		ColumnWidths: map[int]float64{},
+		Warnings:     warnings,
+	}, nil
 }
 
 func (w *Workbook) saveCSV(path string, delimiter rune) error {

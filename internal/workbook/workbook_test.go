@@ -80,6 +80,38 @@ func TestFromCSVExplicitComma(t *testing.T) {
 	}
 }
 
+func TestFromCSVInconsistentFieldCounts(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "inconsistent.csv")
+	content := "header1,header2\nvalue1,value2,\nrow3a,row3b\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write csv: %v", err)
+	}
+
+	wb, err := FromCSV(path, WithCSVDelimiter(','))
+	if err != nil {
+		t.Fatalf("FromCSV inconsistent csv failed: %v", err)
+	}
+	if len(wb.Warnings) == 0 {
+		t.Fatalf("expected warnings for inconsistent rows")
+	}
+	if !strings.Contains(wb.Warnings[0], "row 2") {
+		t.Fatalf("expected warning about row 2, got %q", wb.Warnings[0])
+	}
+	if cols := len(wb.Cells[0]); cols != 3 {
+		t.Fatalf("expected padded header row to 3 columns, got %d", cols)
+	}
+	if cols := len(wb.Cells[2]); cols != 3 {
+		t.Fatalf("expected padded row 3 to 3 columns, got %d", cols)
+	}
+	if val := wb.Cells[0][2]; val != "" {
+		t.Fatalf("expected padded header cell to be empty, got %s", val)
+	}
+	if val := wb.Cells[2][2]; val != "" {
+		t.Fatalf("expected padded row 3 cell to be empty, got %s", val)
+	}
+}
+
 func TestColumnName(t *testing.T) {
 	cases := map[int]string{
 		1:   "A",

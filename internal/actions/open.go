@@ -57,6 +57,17 @@ func (openAction) Exec(ctx Context, args []string) (Result, error) {
 	}
 	ctx.State.LoadWorkbook(wb, path, sheets, active)
 	msg := fmt.Sprintf("loaded %s [%s] (%d rows)\n", filepath.Base(wb.Name), wb.Sheet, len(wb.Cells))
+	if len(wb.Warnings) > 0 {
+		var b strings.Builder
+		b.WriteString(msg)
+		b.WriteString("warnings:\n")
+		for _, warning := range wb.Warnings {
+			b.WriteString("  - ")
+			b.WriteString(warning)
+			b.WriteByte('\n')
+		}
+		msg = b.String()
+	}
 	return Result{Message: msg}, nil
 }
 
