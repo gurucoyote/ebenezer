@@ -80,9 +80,9 @@ func runKeyboardMode(c *cobra.Command) error {
 				'g': gotoShortcut(c),
 				'c': columnHeaderShortcut(c),
 				'r': rowHeaderShortcut(c),
-				'y': keyboardAction(c, actions.Yank, nil),
+				'y': yankShortcut(c),
 				'Y': keyboardAction(c, actions.RowYank, nil),
-				'x': keyboardAction(c, actions.Cut, nil),
+				'x': cutShortcut(c),
 				'X': keyboardAction(c, actions.RowCut, nil),
 				'p': keyboardAction(c, actions.Paste, nil),
 				'P': keyboardAction(c, actions.Paste, []string{"--before"}),
@@ -272,6 +272,11 @@ func expectNextRune(target rune) (bool, error) {
 	return unicode.ToLower(char) == unicode.ToLower(target), nil
 }
 
+func nextRune() (rune, error) {
+	char, _, err := githubkeyboard.GetKey()
+	return char, err
+}
+
 func insertShortcut(c *cobra.Command) keyboard.Action {
 	return func(ctx *keyboard.Context) error {
 		value, err := promptForText(c, appState.CurrentValue())
@@ -287,14 +292,46 @@ func insertShortcut(c *cobra.Command) keyboard.Action {
 
 func deleteCellShortcut(c *cobra.Command) keyboard.Action {
 	return func(ctx *keyboard.Context) error {
-		match, err := expectNextRune('c')
+		char, err := nextRune()
 		if err != nil {
 			return err
 		}
-		if !match {
+		switch unicode.ToLower(char) {
+		case 'c':
+			return keyboardAction(c, actions.Clear, nil)(ctx)
+		case 'd':
+			return keyboardAction(c, actions.RowDelete, nil)(ctx)
+		case 'x':
+			return keyboardAction(c, actions.RowCut, nil)(ctx)
+		default:
 			return nil
 		}
-		return keyboardAction(c, actions.Clear, nil)(ctx)
+	}
+}
+
+func yankShortcut(c *cobra.Command) keyboard.Action {
+	return func(ctx *keyboard.Context) error {
+		char, err := nextRune()
+		if err != nil {
+			return err
+		}
+		if unicode.ToLower(char) == 'y' {
+			return keyboardAction(c, actions.RowYank, nil)(ctx)
+		}
+		return keyboardAction(c, actions.Yank, nil)(ctx)
+	}
+}
+
+func cutShortcut(c *cobra.Command) keyboard.Action {
+	return func(ctx *keyboard.Context) error {
+		char, err := nextRune()
+		if err != nil {
+			return err
+		}
+		if unicode.ToLower(char) == 'x' {
+			return keyboardAction(c, actions.RowCut, nil)(ctx)
+		}
+		return keyboardAction(c, actions.Cut, nil)(ctx)
 	}
 }
 

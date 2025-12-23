@@ -10,6 +10,6 @@ This package lifts the reusable pieces from `/root/gordon/cmd/keyboard.go` so Eb
 ## Next Steps
 1. Wire `Loop` into the future `internal/ui/terminal` package once command registry scaffolding exists.
 2. Register rune/key bindings that map to spreadsheet actions (navigation, edit, yank/paste) via the shared `Action` callbacks.
-3. Extend bindings to support multi-key sequences (e.g. `dd`, `yy`) by layering a small buffer on top of the provided `Context`.
+3. Extend bindings to support multi-key sequences (e.g. `dd`, `yy`) by layering a small buffer on top of the provided `Context`. (Implemented in `internal/cmd/keyboard.go`.)
 
 See `loop.go` for inline docs referencing SPEC §3.2.
