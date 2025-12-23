@@ -81,6 +81,9 @@ type Loop struct {
 	CommandRunes []rune
 	InfoWriter   io.Writer
 	Terminal     ui.TerminalController
+	KeyReader    func() (rune, kb.Key, error)
+	// DisableKeyboardInit skips kb.Open/Close (useful for tests with injected key reader).
+	DisableKeyboardInit bool
 }
 
 // Run blocks until the context is cancelled, an error occurs, or a quit key
@@ -109,10 +112,12 @@ func (l *Loop) Run(ctx context.Context) error {
 		defer l.Terminal.Restore()
 	}
 
-	if err := kb.Open(); err != nil {
-		return fmt.Errorf("keyboard: open: %w", err)
+	if !l.DisableKeyboardInit {
+		if err := kb.Open(); err != nil {
+			return fmt.Errorf("keyboard: open: %w", err)
+		}
+		defer kb.Close()
 	}
-	defer kb.Close()
 
 	for {
 		select {
@@ -121,7 +126,7 @@ func (l *Loop) Run(ctx context.Context) error {
 		default:
 		}
 
-		char, key, err := kb.GetKey()
+		char, key, err := l.KeyReader()
 		if err != nil {
 			return fmt.Errorf("keyboard: read: %w", err)
 		}
@@ -211,6 +216,9 @@ func (l *Loop) ensureDefaults() {
 	}
 	if l.InfoWriter == nil {
 		l.InfoWriter = os.Stderr
+	}
+	if l.KeyReader == nil {
+		l.KeyReader = kb.GetKey
 	}
 }
 

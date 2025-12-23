@@ -108,6 +108,8 @@ func runKeyboardMode(c *cobra.Command) error {
 
 var errPromptCanceled = errors.New("prompt cancelled")
 
+var getKey = githubkeyboard.GetKey
+
 func gotoShortcut(c *cobra.Command) keyboard.Action {
 	return func(ctx *keyboard.Context) error {
 		addr, err := promptForAddress(c)
@@ -265,7 +267,7 @@ func searchShortcut(c *cobra.Command, reverse bool) keyboard.Action {
 }
 
 func expectNextRune(target rune) (bool, error) {
-	char, _, err := githubkeyboard.GetKey()
+	char, _, err := getKey()
 	if err != nil {
 		return false, err
 	}
@@ -273,7 +275,7 @@ func expectNextRune(target rune) (bool, error) {
 }
 
 func nextRune() (rune, error) {
-	char, _, err := githubkeyboard.GetKey()
+	char, _, err := getKey()
 	return char, err
 }
 
