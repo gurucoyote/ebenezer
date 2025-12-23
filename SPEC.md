@@ -34,6 +34,7 @@ Key workflows:
 - **Insert mode** temporarily disables key-sequence capture to allow freeform text entry, with ESC to abort edits.
 - All prompts (insert, goto, search, filename) must support standard readline/Vim-style editing shortcuts like `Ctrl-U` (clear input) and `Ctrl-W` (delete previous word) for muscle-memory parity with shell workflows.
 - Maintain a command registry mapping sequences to actions and help text; pressing `h`/`?` prints grouped help.
+- **Raw-mode rationale**: The keyboard loop must run with canonical input and signals disabled so single keystrokes, multi-byte escape sequences (arrow keys, Alt combos), and mode transitions are observed directly. Raw mode is also the only place to guarantee cleanup (restoring terminal state on exit or panic) and shared buffering for both the interactive CLI and the MCP transport; without it, Normal/Insert/command-mode semantics break under the shell’s cooked line editing and SIGINT handling.
 
 ### 3.3 Navigation Commands
 - `down|enter|return`, `up`, `left`, `right` move the cursor one cell, clamped at row/column ≥ 1.

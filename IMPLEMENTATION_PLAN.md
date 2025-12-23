@@ -39,7 +39,7 @@ Deliverable: Minimum usable CLI covering §3.1–3.4, §8 basics.
 Tasks:
 1. [x] **App State & Lifecycle** (`internal/app/state.go`): implement state + sample workbook loader. *(Filename history still future work.)* **(US-06)**
 2. [x] **Workbook I/O** (`internal/workbook/workbook.go`, `internal/workbook/save.go`, `internal/workbook/xlsx.go`): `.csv`/`.xlsx` loading and saving (with styles/column widths) are implemented and now honor the configurable CSV delimiter override exposed via the root `--delimiter` flag. **(US-02, US-05)**
-3. [ ] **Terminal Raw Mode** (`internal/ui/terminal.go`): not started (current demo uses lifted keyboard loop only).
+3. [ ] **Terminal Raw Mode** (`internal/ui/terminal.go`): not started (current demo uses lifted keyboard loop only). See “Raw Mode Implementation Plan” below.
 4. [x] **Command Registry** (`internal/commands/registry.go`): actions package backed by `executeAction` adapter, registering metadata and used by Cobra and keyboard bindings. **
 5. [x] **Navigation Commands**: arrow key handlers, goto, row/column headers wired via Cobra + keyboard shortcuts. **(US-01)**
 6. [x] **Editing Commands**: cell + row edit/yank/cut/paste/clear implemented while column insert/delete helpers and save/write flows already delegate to the shared action layer (`internal/actions/edit.go`, `internal/actions/rows.go`, `internal/actions/columns.go`, `internal/actions/save.go`).
@@ -130,6 +130,12 @@ Exit Criteria:
 - **Testing Debt Register**: maintain `docs/testing.md` to track gaps (e.g., REPL coverage).
 - **UX Consistency**: Add automated snapshot tests for help output and status line.
 - **Style Integrity**: Maintain XLSX golden fixtures to detect unintended formatting regressions; add CI diff helper comparing style XML hashes.
+- **Raw Mode Implementation Plan** (supports SPEC §3.2, US-01):
+  1. Build `internal/ui/terminal.go` to manage raw/cooked state using `golang.org/x/term` with `MakeRaw`/`Restore` plus signal-safe cleanup (`SIGINT`, `SIGTERM`, panics).
+  2. Add configurable `keyWait` timeout and buffered reader feeding the existing keyboard loop; ensure multi-byte escape sequences (arrows, Alt combos) are coalesced before dispatch.
+  3. Expose a thin adapter so Cobra command-mode, keyboard mode, and MCP transports can reuse the same decoded key stream (avoids duplicating buffering logic).
+  4. Tests: pseudo-terminal (pty) smoke covering enter/exit raw mode, ESC buffering, and cleanup on interrupt; table-driven unit tests for key buffering timeouts.
+  5. Docs: update `SPEC.md §3.2` (rationale captured) and add a short developer note in `docs/testing.md` on how to run PTY/raw-mode tests locally.
 - **Security Reviews**: before Milestone 4, run `gosec` and document findings.
 
 ## 4. Risk Register & Mitigations
