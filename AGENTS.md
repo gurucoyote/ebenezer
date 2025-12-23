@@ -83,12 +83,15 @@ This document gives CLI coding agents the context they need to work effectively 
 2. **Run quality gates** (if code changed) - Tests, linters, builds
 3. **Update issue status** - Close finished work, update in-progress items
 4. **PUSH TO REMOTE** - This is MANDATORY:
+   <!-- Remote git sync steps paused while we operate locally.
    ```bash
    git pull --rebase
    bd sync
    git push
    git status  # MUST show "up to date with origin"
    ```
+   -->
+   *Remote network access is currently disabled; keep changes local until connectivity returns.*
 5. **Clean up** - Clear stashes, prune remote branches
 6. **Verify** - All changes committed AND pushed
 7. **Hand off** - Provide context for next session
