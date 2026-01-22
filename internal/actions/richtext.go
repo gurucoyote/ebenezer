@@ -23,21 +23,31 @@ func (richTextScanAction) Metadata() Metadata {
 		Description: "Scan an XLSX file for inline rich text runs",
 		Category:    "file",
 		Args: []Arg{
-			{Name: "path", Description: "Path to XLSX file"},
+			{Name: "path", Description: "Path to XLSX file (defaults to current workbook)", Optional: true},
 			{Name: "--sheet", Description: "Optional sheet to scan", Optional: true},
 		},
 	}
 }
 
 func (richTextScanAction) Exec(ctx Context, args []string) (Result, error) {
-	if len(args) == 0 {
-		return Result{}, fmt.Errorf("richtext-scan requires a file path")
-	}
-	path := args[0]
+	path := ""
 	sheet := ""
-	for _, arg := range args[1:] {
+	for _, arg := range args {
 		if strings.HasPrefix(arg, "--sheet=") {
 			sheet = strings.TrimPrefix(arg, "--sheet=")
+			continue
+		}
+		if path == "" {
+			path = arg
+		}
+	}
+	if path == "" {
+		if err := EnsureState(ctx); err != nil {
+			return Result{}, err
+		}
+		path = ctx.State.SourcePath
+		if path == "" {
+			return Result{}, fmt.Errorf("richtext-scan requires a file path or active workbook")
 		}
 	}
 	warnings, err := workbook.ScanRichText(path, sheet)

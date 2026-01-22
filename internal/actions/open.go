@@ -55,6 +55,15 @@ func (openAction) Exec(ctx Context, args []string) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	if strings.EqualFold(filepath.Ext(path), ".xlsx") {
+		if warnings, err := workbook.ScanRichText(path, ""); err != nil {
+			wb.Warnings = append(wb.Warnings, fmt.Sprintf("rich text scan failed: %v", err))
+		} else {
+			for _, warning := range warnings {
+				wb.Warnings = append(wb.Warnings, fmt.Sprintf("rich text in %s!%s (%d runs)", warning.Sheet, warning.Cell, warning.Runs))
+			}
+		}
+	}
 	ctx.State.LoadWorkbook(wb, path, sheets, active)
 	msg := fmt.Sprintf("loaded %s [%s] (%d rows)\n", filepath.Base(wb.Name), wb.Sheet, len(wb.Cells))
 	if len(wb.Warnings) > 0 {

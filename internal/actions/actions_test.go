@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"ebenezer/internal/app"
+
+	excelize "github.com/xuri/excelize/v2"
 )
 
 func TestMoveAction(t *testing.T) {
@@ -141,6 +143,36 @@ func TestSampleAndOpenActions(t *testing.T) {
 	}
 	if ctx.State.SourcePath != tmp {
 		t.Fatalf("expected source path %s, got %s", tmp, ctx.State.SourcePath)
+	}
+}
+
+func TestOpenActionWarnsOnRichText(t *testing.T) {
+	st := app.NewState()
+	ctx := NewContext(st, nil)
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "richtext.xlsx")
+	f := excelize.NewFile()
+	sheet := f.GetSheetName(f.GetActiveSheetIndex())
+	if err := f.SetCellRichText(sheet, "A1", []excelize.RichTextRun{
+		{Text: "Bold", Font: &excelize.Font{Bold: true}},
+		{Text: " Plain", Font: &excelize.Font{}},
+	}); err != nil {
+		t.Fatalf("set rich text: %v", err)
+	}
+	if err := f.SaveAs(path); err != nil {
+		t.Fatalf("save xlsx: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("close xlsx: %v", err)
+	}
+
+	res, err := OpenFile.Exec(ctx, []string{path})
+	if err != nil {
+		t.Fatalf("open rich text: %v", err)
+	}
+	if !strings.Contains(res.Message, "rich text in") {
+		t.Fatalf("expected rich text warning, got %q", res.Message)
 	}
 }
 
