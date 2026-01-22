@@ -6,8 +6,9 @@ import (
 )
 
 var richTextScanCmd = &cobra.Command{
-	Use:   "richtext-scan [file] [--sheet NAME]",
-	Short: "Scan an XLSX file (or current workbook) for inline rich text runs",
+	Use:     "richtext-scan [file] [--sheet NAME]",
+	Aliases: []string{"rtf-scan"},
+	Short:   "Scan an XLSX file (or current workbook) for inline rich text runs",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		_, err := executeAction(cmd, actions.RichTextScan, args)
 		return err
