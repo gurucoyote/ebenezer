@@ -14,6 +14,7 @@ func init() {
 	rootCmd.AddCommand(writeCmd)
 	rootCmd.AddCommand(writeForceCmd)
 	rootCmd.AddCommand(saveForceCmd)
+	markInteractive(saveCmd, saveAsCmd, saveForceCmd, writeCmd, writeForceCmd)
 }
 
 var saveCmd = &cobra.Command{

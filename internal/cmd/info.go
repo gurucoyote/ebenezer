@@ -24,4 +24,5 @@ var infoCmd = &cobra.Command{
 func init() {
 	infoCmd.Flags().Bool("details", false, "Show extended metadata (file size, timestamps)")
 	rootCmd.AddCommand(infoCmd)
+	markInteractive(infoCmd)
 }

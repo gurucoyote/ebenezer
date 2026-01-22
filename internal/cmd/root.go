@@ -34,13 +34,11 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&rootSheet, "sheet", "", "Sheet to load when opening .xlsx files")
 	rootCmd.PersistentFlags().StringVar(&rootCSVDelimiter, "delimiter", string(workbook.DefaultCSVDelimiter), "Delimiter used when reading/writing CSV files")
 	rootCmd.PersistentFlags().BoolVarP(&rootQuiet, "quiet", "q", false, "Suppress JSON action logs")
-	cobra.OnInitialize(func() {
-		setInteractiveCommandVisibility(rootCmd, interactiveHelpEnabled)
-	})
 }
 
 // Execute runs the root command with the provided arguments/context.
 func Execute(ctx context.Context, args []string) error {
+	setInteractiveCommandVisibility(rootCmd, false)
 	if len(args) > 0 {
 		rootCmd.SetArgs(args)
 	}

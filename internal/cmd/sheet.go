@@ -36,4 +36,5 @@ var sheetNewCmd = &cobra.Command{
 func init() {
 	sheetNewCmd.Flags().String("copy", "", "Copy contents from existing sheet")
 	rootCmd.AddCommand(sheetSelectCmd, sheetNewCmd)
+	markInteractive(sheetSelectCmd, sheetNewCmd)
 }

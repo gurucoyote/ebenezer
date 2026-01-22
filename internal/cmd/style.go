@@ -17,6 +17,7 @@ var styleCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(styleCmd, styleCopyCmd, stylePasteCmd)
+	markInteractive(styleCmd, styleCopyCmd, stylePasteCmd)
 }
 
 var styleCopyCmd = &cobra.Command{

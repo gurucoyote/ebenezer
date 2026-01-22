@@ -18,4 +18,5 @@ var moveCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(moveCmd)
+	markInteractive(moveCmd)
 }

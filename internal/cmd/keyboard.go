@@ -42,9 +42,9 @@ func runKeyboardMode(c *cobra.Command) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	suppressActionLogs = true
-	interactiveHelpEnabled = true
 	defer func() { suppressActionLogs = false }()
-	defer func() { interactiveHelpEnabled = false }()
+	setInteractiveCommandVisibility(rootCmd, true)
+	defer setInteractiveCommandVisibility(rootCmd, false)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, unix.SIGTERM)

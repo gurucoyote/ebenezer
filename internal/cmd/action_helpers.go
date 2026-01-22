@@ -9,7 +9,6 @@ import (
 )
 
 var suppressActionLogs bool
-var interactiveHelpEnabled bool
 
 func executeAction(cmd *cobra.Command, action actions.Action, args []string) (actions.Result, error) {
 	ctx := actions.NewContext(appState, cmd.OutOrStdout())

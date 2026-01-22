@@ -18,4 +18,5 @@ var searchCaseCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(searchCaseCmd)
+	markInteractive(searchCaseCmd)
 }

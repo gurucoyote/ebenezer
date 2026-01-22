@@ -38,4 +38,5 @@ func init() {
 	rootCmd.AddCommand(gotoCmd)
 	rootCmd.AddCommand(colHeaderCmd)
 	rootCmd.AddCommand(rowHeaderCmd)
+	markInteractive(gotoCmd, colHeaderCmd, rowHeaderCmd)
 }

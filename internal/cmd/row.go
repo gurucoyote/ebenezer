@@ -58,4 +58,5 @@ var rowInsertBelowCmd = &cobra.Command{
 func init() {
 	rowCmd.AddCommand(rowYankCmd, rowCutCmd, rowDeleteCmd, rowInsertAboveCmd, rowInsertBelowCmd)
 	rootCmd.AddCommand(rowCmd)
+	markInteractive(rowCmd, rowYankCmd, rowCutCmd, rowDeleteCmd, rowInsertAboveCmd, rowInsertBelowCmd)
 }

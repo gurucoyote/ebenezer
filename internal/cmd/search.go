@@ -45,4 +45,5 @@ func init() {
 	rootCmd.AddCommand(searchCmd)
 	rootCmd.AddCommand(searchNextCmd)
 	rootCmd.AddCommand(searchPrevCmd)
+	markInteractive(searchCmd, searchNextCmd, searchPrevCmd)
 }
