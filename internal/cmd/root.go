@@ -21,6 +21,7 @@ var (
 	appState         = app.NewState()
 	rootSheet        string
 	rootCSVDelimiter string
+	rootQuiet        bool
 )
 
 func init() {
@@ -28,6 +29,7 @@ func init() {
 	rootCmd.PersistentPreRunE = rootPreRun
 	rootCmd.PersistentFlags().StringVar(&rootSheet, "sheet", "", "Sheet to load when opening .xlsx files")
 	rootCmd.PersistentFlags().StringVar(&rootCSVDelimiter, "delimiter", string(workbook.DefaultCSVDelimiter), "Delimiter used when reading/writing CSV files")
+	rootCmd.PersistentFlags().BoolVarP(&rootQuiet, "quiet", "q", false, "Suppress JSON action logs")
 }
 
 // Execute runs the root command with the provided arguments/context.

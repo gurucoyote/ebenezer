@@ -12,7 +12,7 @@ var suppressActionLogs bool
 
 func executeAction(cmd *cobra.Command, action actions.Action, args []string) (actions.Result, error) {
 	ctx := actions.NewContext(appState, cmd.OutOrStdout())
-	if suppressActionLogs {
+	if suppressActionLogs || rootQuiet {
 		ctx.Logger = actions.NopLogger{}
 	} else {
 		ctx.Logger = actions.JSONLogger{Writer: cmd.ErrOrStderr()}
