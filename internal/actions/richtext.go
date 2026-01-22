@@ -54,6 +54,14 @@ func (richTextScanAction) Exec(ctx Context, args []string) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	if ctx.State != nil && ctx.State.Workbook != nil && ctx.State.SourcePath == path {
+		storeSheet := sheet
+		if storeSheet == "" {
+			storeSheet = ctx.State.Workbook.Sheet
+		}
+		ctx.State.Workbook.RichTextRuns = workbook.RichTextRunMap(warnings, storeSheet)
+		ctx.State.Workbook.RichTextSheet = storeSheet
+	}
 	if len(warnings) == 0 {
 		return Result{Message: "no rich text runs found\n", Data: warnings}, nil
 	}

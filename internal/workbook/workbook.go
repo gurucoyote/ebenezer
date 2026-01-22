@@ -42,13 +42,15 @@ func newCSVOptions(opts []CSVOption) csvOptions {
 
 // Workbook is a minimal in-memory representation for demo purposes.
 type Workbook struct {
-	Cells        [][]string
-	Name         string
-	Sheet        string
-	Styles       map[string]CellStyle
-	ActiveCell   string
-	ColumnWidths map[int]float64
-	Warnings     []string
+	Cells         [][]string
+	Name          string
+	Sheet         string
+	Styles        map[string]CellStyle
+	RichTextRuns  map[string]int
+	RichTextSheet string
+	ActiveCell    string
+	ColumnWidths  map[int]float64
+	Warnings      []string
 }
 
 // SampleWorkbook seeds demo data without hitting the filesystem.
@@ -60,7 +62,15 @@ func SampleWorkbook() *Workbook {
 		{"Ink", "1", "$42"},
 		{"Total", "8", "$64"},
 	}
-	return &Workbook{Cells: cells, Name: "sample", Sheet: "Sheet1", Styles: map[string]CellStyle{}, ActiveCell: "A1", ColumnWidths: map[int]float64{}}
+	return &Workbook{
+		Cells:        cells,
+		Name:         "sample",
+		Sheet:        "Sheet1",
+		Styles:       map[string]CellStyle{},
+		RichTextRuns: map[string]int{},
+		ActiveCell:   "A1",
+		ColumnWidths: map[int]float64{},
+	}
 }
 
 // FromFile loads either CSV or XLSX data into a Workbook and returns the sheet

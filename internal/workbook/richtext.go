@@ -69,6 +69,22 @@ func ScanRichText(path, sheet string) ([]RichTextWarning, error) {
 	return warnings, nil
 }
 
+// RichTextRunMap converts warnings to an address->run-count map for a sheet.
+func RichTextRunMap(warnings []RichTextWarning, sheet string) map[string]int {
+	result := map[string]int{}
+	if sheet == "" {
+		return result
+	}
+	for _, warning := range warnings {
+		if !strings.EqualFold(warning.Sheet, sheet) {
+			continue
+		}
+		addr := strings.ToUpper(warning.Cell)
+		result[addr] = warning.Runs
+	}
+	return result
+}
+
 func isRichTextRuns(runs []excelize.RichTextRun) bool {
 	if len(runs) == 0 {
 		return false

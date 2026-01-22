@@ -90,13 +90,13 @@ func runKeyboardMode(c *cobra.Command) error {
 				'c': columnHeaderShortcut(c),
 				'r': rowHeaderShortcut(c),
 				'y': yankShortcut(c),
-				'Y': keyboardAction(c, actions.RowYank, nil),
+				'Y': withRichTextWarning(c, hasRichTextRow, keyboardAction(c, actions.RowYank, nil)),
 				'x': cutShortcut(c),
-				'X': keyboardAction(c, actions.RowCut, nil),
-				'p': keyboardAction(c, actions.Paste, nil),
-				'P': keyboardAction(c, actions.Paste, []string{"--before"}),
+				'X': withRichTextWarning(c, hasRichTextRow, keyboardAction(c, actions.RowCut, nil)),
+				'p': withRichTextWarning(c, hasRichTextSelectionOrCell, keyboardAction(c, actions.Paste, nil)),
+				'P': withRichTextWarning(c, hasRichTextSelectionOrCell, keyboardAction(c, actions.Paste, []string{"--before"})),
 				'd': deleteCellShortcut(c),
-				'D': keyboardAction(c, actions.RowDelete, nil),
+				'D': withRichTextWarning(c, hasRichTextRow, keyboardAction(c, actions.RowDelete, nil)),
 				'O': keyboardAction(c, actions.RowInsertAbove, nil),
 				'o': keyboardAction(c, actions.RowInsertBelow, nil),
 			},
@@ -540,6 +540,12 @@ func nextRune() (rune, error) {
 
 func insertShortcut(c *cobra.Command) keyboard.Action {
 	return func(ctx *keyboard.Context) error {
+		if hasRichTextCurrentCell() {
+			ok, err := confirmRichTextFlatten(c)
+			if err != nil || !ok {
+				return err
+			}
+		}
 		value, err := promptForText(c, appState.CurrentValue())
 		if err != nil {
 			if errors.Is(err, errPromptCanceled) {
@@ -559,11 +565,11 @@ func deleteCellShortcut(c *cobra.Command) keyboard.Action {
 		}
 		switch unicode.ToLower(char) {
 		case 'c':
-			return keyboardAction(c, actions.Clear, nil)(ctx)
+			return withRichTextWarning(c, hasRichTextCurrentCell, keyboardAction(c, actions.Clear, nil))(ctx)
 		case 'd':
-			return keyboardAction(c, actions.RowDelete, nil)(ctx)
+			return withRichTextWarning(c, hasRichTextRow, keyboardAction(c, actions.RowDelete, nil))(ctx)
 		case 'x':
-			return keyboardAction(c, actions.RowCut, nil)(ctx)
+			return withRichTextWarning(c, hasRichTextRow, keyboardAction(c, actions.RowCut, nil))(ctx)
 		default:
 			return nil
 		}
@@ -577,9 +583,9 @@ func yankShortcut(c *cobra.Command) keyboard.Action {
 			return err
 		}
 		if unicode.ToLower(char) == 'y' {
-			return keyboardAction(c, actions.RowYank, nil)(ctx)
+			return withRichTextWarning(c, hasRichTextRow, keyboardAction(c, actions.RowYank, nil))(ctx)
 		}
-		return keyboardAction(c, actions.Yank, nil)(ctx)
+		return withRichTextWarning(c, hasRichTextCurrentCell, keyboardAction(c, actions.Yank, nil))(ctx)
 	}
 }
 
@@ -590,10 +596,148 @@ func cutShortcut(c *cobra.Command) keyboard.Action {
 			return err
 		}
 		if unicode.ToLower(char) == 'x' {
-			return keyboardAction(c, actions.RowCut, nil)(ctx)
+			return withRichTextWarning(c, hasRichTextRow, keyboardAction(c, actions.RowCut, nil))(ctx)
 		}
-		return keyboardAction(c, actions.Cut, nil)(ctx)
+		return withRichTextWarning(c, hasRichTextCurrentCell, keyboardAction(c, actions.Cut, nil))(ctx)
 	}
+}
+
+func withRichTextWarning(c *cobra.Command, hasRichText func() bool, action keyboard.Action) keyboard.Action {
+	return func(ctx *keyboard.Context) error {
+		if hasRichText != nil && hasRichText() {
+			ok, err := confirmRichTextFlatten(c)
+			if err != nil || !ok {
+				return err
+			}
+		}
+		return action(ctx)
+	}
+}
+
+func confirmRichTextFlatten(c *cobra.Command) (bool, error) {
+	out := c.OutOrStdout()
+	fmt.Fprint(out, "\nWarning: this action will flatten rich text formatting. Proceed? (y/N): ")
+	for {
+		char, key, err := getKey()
+		if err != nil {
+			return false, err
+		}
+		switch key {
+		case githubkeyboard.KeyEnter, githubkeyboard.KeyEsc:
+			fmt.Fprintln(out)
+			return false, nil
+		}
+		switch unicode.ToLower(char) {
+		case 'y':
+			fmt.Fprintln(out)
+			return true, nil
+		case 'n':
+			fmt.Fprintln(out)
+			return false, nil
+		}
+	}
+}
+
+func hasRichTextCurrentCell() bool {
+	addr := strings.ToUpper(appState.Address())
+	return richTextMapHasAddress(addr)
+}
+
+func hasRichTextSelectionOrCell() bool {
+	if appState.HasSelection() {
+		startRow, startCol, endRow, endCol, ok := appState.SelectionBounds()
+		if ok {
+			return richTextMapHasRange(startRow, startCol, endRow, endCol)
+		}
+	}
+	return hasRichTextCurrentCell()
+}
+
+func hasRichTextRow() bool {
+	if appState.HasSelection() && appState.Selection.Mode == app.SelectionRow {
+		startRow, endRow, ok := appState.SelectionRowBounds()
+		if ok {
+			return richTextMapHasRowRange(startRow, endRow)
+		}
+	}
+	return richTextMapHasRowRange(appState.Cursor.Row, appState.Cursor.Row)
+}
+
+func richTextMapHasAddress(addr string) bool {
+	rt := richTextMapActive()
+	if len(rt) == 0 || addr == "" {
+		return false
+	}
+	_, ok := rt[addr]
+	return ok
+}
+
+func richTextMapHasRange(startRow, startCol, endRow, endCol int) bool {
+	rt := richTextMapActive()
+	if len(rt) == 0 {
+		return false
+	}
+	for addr := range rt {
+		row, col, ok := parseCellAddress(addr)
+		if !ok {
+			continue
+		}
+		if row >= startRow && row <= endRow && col >= startCol && col <= endCol {
+			return true
+		}
+	}
+	return false
+}
+
+func richTextMapHasRowRange(startRow, endRow int) bool {
+	rt := richTextMapActive()
+	if len(rt) == 0 {
+		return false
+	}
+	for addr := range rt {
+		row, _, ok := parseCellAddress(addr)
+		if !ok {
+			continue
+		}
+		if row >= startRow && row <= endRow {
+			return true
+		}
+	}
+	return false
+}
+
+func richTextMapActive() map[string]int {
+	if appState.Workbook == nil {
+		return nil
+	}
+	if appState.Workbook.RichTextSheet != "" && !strings.EqualFold(appState.Workbook.RichTextSheet, appState.Workbook.Sheet) {
+		return nil
+	}
+	return appState.Workbook.RichTextRuns
+}
+
+func parseCellAddress(addr string) (row, col int, ok bool) {
+	addr = strings.TrimSpace(strings.ToUpper(addr))
+	if addr == "" {
+		return 0, 0, false
+	}
+	i := 0
+	for i < len(addr) {
+		ch := addr[i]
+		if ch < 'A' || ch > 'Z' {
+			break
+		}
+		col = col*26 + int(ch-'A'+1)
+		i++
+	}
+	if i == 0 || i >= len(addr) {
+		return 0, 0, false
+	}
+	rowVal, err := strconv.Atoi(addr[i:])
+	if err != nil || rowVal < 1 {
+		return 0, 0, false
+	}
+	return rowVal, col, true
 }
 
 func simpleCommand(name string, args ...string) keyboard.Action {

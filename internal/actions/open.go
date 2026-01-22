@@ -63,6 +63,8 @@ func (openAction) Exec(ctx Context, args []string) (Result, error) {
 		if warnings, err := workbook.ScanRichText(path, scanSheet); err != nil {
 			wb.Warnings = append(wb.Warnings, fmt.Sprintf("rich text scan failed: %v", err))
 		} else {
+			wb.RichTextRuns = workbook.RichTextRunMap(warnings, scanSheet)
+			wb.RichTextSheet = scanSheet
 			for _, warning := range warnings {
 				wb.Warnings = append(wb.Warnings, fmt.Sprintf("rich text in %s!%s (%d runs)", warning.Sheet, warning.Cell, warning.Runs))
 			}
