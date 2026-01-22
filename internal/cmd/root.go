@@ -14,9 +14,11 @@ import (
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "ebenezer [FILE]",
-		Short: "Ebenezer spreadsheet CLI (skeleton)",
-		Args:  cobra.MaximumNArgs(1),
+		Use:     "ebenezer [FILE]",
+		Short:   "Ebenezer spreadsheet CLI",
+		Long:    "Ebenezer is a headless-yet-interactive spreadsheet editor. Run with a file to open keyboard mode, or use subcommands for automated workflows.",
+		Example: "  ebenezer data.xlsx\n  ebenezer --sheet Budget data.xlsx\n  ebenezer -q richtext-scan data.xlsx\n  ebenezer mcp serve",
+		Args:    cobra.MaximumNArgs(1),
 	}
 	appState         = app.NewState()
 	rootSheet        string
