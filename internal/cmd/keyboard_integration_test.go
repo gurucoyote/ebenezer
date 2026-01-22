@@ -83,7 +83,7 @@ func TestKeyboardRawModePTY(t *testing.T) {
 		t.Fatal("timeout waiting for PTY reader to finish")
 	}
 
-	if !strings.Contains(output.String(), "exiting keyboard mode") {
+	if !strings.Contains(output.String(), "exiting Ebenezer") {
 		t.Fatalf("expected quit message, got output: %q", output.String())
 	}
 }

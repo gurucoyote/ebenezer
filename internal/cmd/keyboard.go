@@ -107,7 +107,7 @@ func runKeyboardMode(c *cobra.Command) error {
 
 	if err := loop.Run(ctx); err != nil {
 		if err == keyboard.ErrQuit {
-			fmt.Fprintln(c.OutOrStdout(), "exiting keyboard mode")
+			fmt.Fprintln(c.OutOrStdout(), "exiting Ebenezer")
 			return nil
 		}
 		return err
