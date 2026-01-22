@@ -15,7 +15,7 @@ go build ./cmd/ebenezer
 ```
 
 ### Normal Mode Bindings (current scope)
-- Arrow keys: move the cursor (updates stdout with coordinates/value).
+- Arrow keys or `h/j/k/l`: move the cursor (updates stdout with coordinates/value).
 - `g`: prompt for a cell address (defaulting to the current cell) and jump there.
 - `s`: print the current cell status.
 - `c` then `t`: print the current column header (row 1); `r` then `t`: print the current row header (column 1).

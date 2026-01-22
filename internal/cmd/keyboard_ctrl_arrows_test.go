@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"ebenezer/internal/actions"
 	"ebenezer/internal/ui/keyboard"
 	githubkeyboard "github.com/eiannone/keyboard"
 )
@@ -59,6 +60,94 @@ func TestKeyReaderWithCtrlArrows_CtrlLeftDispatchesMoveSpan(t *testing.T) {
 	}
 	if got, want := exec.calls[0], []string{"move-span", "left"}; !equalStrings(got, want) {
 		t.Fatalf("expected exec call %v, got %v", want, got)
+	}
+}
+
+func TestCtrlArrowDirectionVariants(t *testing.T) {
+	cases := []struct {
+		seq string
+		dir string
+		ok  bool
+	}{
+		{seq: "[1;5D", dir: "left", ok: true},
+		{seq: "[1;5C", dir: "right", ok: true},
+		{seq: "[1;5A", dir: "up", ok: true},
+		{seq: "[1;5B", dir: "down", ok: true},
+		{seq: "[5D", dir: "left", ok: true},
+		{seq: "5C", dir: "right", ok: true},
+		{seq: "[1;2C", dir: "", ok: false},
+		{seq: "[D", dir: "", ok: false},
+		{seq: "", dir: "", ok: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.seq, func(t *testing.T) {
+			dir, ok := ctrlArrowDirection(tc.seq)
+			if ok != tc.ok {
+				t.Fatalf("expected ok=%v, got %v", tc.ok, ok)
+			}
+			if ok && dir != tc.dir {
+				t.Fatalf("expected dir=%q, got %q", tc.dir, dir)
+			}
+		})
+	}
+}
+
+type actionExecutor struct {
+	err error
+}
+
+func (a *actionExecutor) ExecuteCommand(args []string) error {
+	if len(args) == 0 {
+		return nil
+	}
+	switch args[0] {
+	case "move-span":
+		if len(args) < 2 {
+			return errors.New("move-span requires direction")
+		}
+		ctx := actions.NewContext(appState, io.Discard)
+		ctx.Logger = actions.NopLogger{}
+		_, err := actions.MoveSpan.Exec(ctx, args[1:])
+		return err
+	default:
+		return a.err
+	}
+}
+
+func TestKeyReaderWithCtrlArrows_UpdatesState(t *testing.T) {
+	resetState()
+	appState.Cursor.Row = 1
+	appState.Cursor.Col = 1
+
+	orig := getKey
+	origPoll := pollReadable
+	defer func() { getKey = orig }()
+	defer func() { pollReadable = origPoll }()
+
+	events := []keyboardEvent{
+		{r: 0, k: githubkeyboard.KeyEsc},
+		{r: '[', k: 0},
+		{r: '5', k: 0},
+		{r: 'C', k: 0},
+	}
+	getKey = func() (rune, githubkeyboard.Key, error) {
+		if len(events) == 0 {
+			return 0, 0, io.EOF
+		}
+		ev := events[0]
+		events = events[1:]
+		return ev.r, ev.k, nil
+	}
+	pollReadable = func(timeout time.Duration) (bool, error) { return true, nil }
+
+	exec := &actionExecutor{}
+	reader := keyReaderWithCtrlArrows(exec)
+	if _, _, err := reader(); err != nil {
+		t.Fatalf("reader: %v", err)
+	}
+	if got := appState.Address(); got != "C1" {
+		t.Fatalf("expected cursor to move to C1, got %s", got)
 	}
 }
 

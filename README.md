@@ -22,7 +22,7 @@ Ebenezer is a headless-yet-interactive spreadsheet editor with a Vim-inspired wo
 Use the root-level `--delimiter` flag to override the rune used when loading or saving CSV files (default `;`). Example: `./ebenezer --delimiter=";" data.csv` or start without a file and use `:save-range` while setting `--delimiter="|"` to persist a pipe-delimited export.
 
 While in keyboard mode:
-- Arrow keys move the cursor; output shows `→ <address> = "<value>"`.
+- Arrow keys or `h/j/k/l` move the cursor; output shows `→ <address> = "<value>"`.
 - `g` prompts for a cell address (e.g., `B12`) and jumps there.
 - `/` runs a forward search (prompt pre-fills the last query), `?` searches backward, and `n`/`N` repeat in the same/opposite direction respectively—with wrap-around matching against any cell text.
 - Use `:search-case sensitive|insensitive|toggle` to control whether `/` and `?` respect casing (default insensitive).

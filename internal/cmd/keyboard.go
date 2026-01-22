@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -71,6 +72,10 @@ func runKeyboardMode(c *cobra.Command) error {
 				githubkeyboard.KeyEsc:        clearSelectionAction(c),
 			},
 			Runes: map[rune]keyboard.Action{
+				'h': keyboardAction(c, actions.Move, []string{"left"}),
+				'j': keyboardAction(c, actions.Move, []string{"down"}),
+				'k': keyboardAction(c, actions.Move, []string{"up"}),
+				'l': keyboardAction(c, actions.Move, []string{"right"}),
 				'i': insertShortcut(c),
 				'/': searchShortcut(c, false),
 				'?': searchShortcut(c, true),
@@ -144,6 +149,7 @@ type keyboardEvent struct {
 // returns an empty keypress so the normal dispatch layer ignores it.
 func keyReaderWithCtrlArrows(exec keyboard.CommandExecutor) func() (rune, githubkeyboard.Key, error) {
 	var pending []keyboardEvent
+	const ctrlArrowWait = 25 * time.Millisecond
 
 	type eventResult struct {
 		ev  keyboardEvent
@@ -182,7 +188,7 @@ func keyReaderWithCtrlArrows(exec keyboard.CommandExecutor) func() (rune, github
 		}
 
 		// Attempt to interpret Ctrl+Arrow escape sequences without blocking Esc.
-		second, ok, err := readNext(10 * time.Millisecond)
+		second, ok, err := readNext(ctrlArrowWait)
 		if err != nil {
 			return 0, 0, err
 		}
@@ -198,7 +204,7 @@ func keyReaderWithCtrlArrows(exec keyboard.CommandExecutor) func() (rune, github
 
 		var seq []keyboardEvent
 		for len(seq) < 8 {
-			next, ok, err := readNext(10 * time.Millisecond)
+			next, ok, err := readNext(ctrlArrowWait)
 			if err != nil {
 				return 0, 0, err
 			}
@@ -221,31 +227,82 @@ func keyReaderWithCtrlArrows(exec keyboard.CommandExecutor) func() (rune, github
 			}
 			b.WriteRune(ev.r)
 		}
-		switch b.String() {
-		case "[1;5D":
-			_ = exec.ExecuteCommand([]string{"move-span", "left"})
+		if dir, ok := ctrlArrowDirection(b.String()); ok {
+			_ = exec.ExecuteCommand([]string{"move-span", dir})
 			return 0, 0, nil
-		case "[1;5C":
-			_ = exec.ExecuteCommand([]string{"move-span", "right"})
-			return 0, 0, nil
-		case "[1;5A":
-			_ = exec.ExecuteCommand([]string{"move-span", "up"})
-			return 0, 0, nil
-		case "[1;5B":
-			_ = exec.ExecuteCommand([]string{"move-span", "down"})
-			return 0, 0, nil
-		default:
-			// Unknown sequence: replay bytes after the initial Esc so they can be handled normally.
-			pending = append(pending, second)
-			pending = append(pending, seq...)
-			return ev.r, ev.k, nil
 		}
+
+		// Unknown sequence: replay bytes after the initial Esc so they can be handled normally.
+		pending = append(pending, second)
+		pending = append(pending, seq...)
+		return ev.r, ev.k, nil
+	}
+}
+
+func ctrlArrowDirection(seq string) (string, bool) {
+	if seq == "" {
+		return "", false
+	}
+	if seq[0] == '[' {
+		seq = seq[1:]
+	}
+	if len(seq) == 0 {
+		return "", false
+	}
+
+	final := seq[len(seq)-1]
+	switch final {
+	case 'A', 'B', 'C', 'D':
+	default:
+		return "", false
+	}
+
+	params := seq[:len(seq)-1]
+	if params == "" {
+		return "", false
+	}
+
+	hasCtrl := false
+	for _, part := range strings.Split(params, ";") {
+		if part == "" {
+			continue
+		}
+		val, err := strconv.Atoi(part)
+		if err != nil {
+			return "", false
+		}
+		if val == 5 {
+			hasCtrl = true
+		}
+	}
+	if !hasCtrl {
+		return "", false
+	}
+
+	switch final {
+	case 'A':
+		return "up", true
+	case 'B':
+		return "down", true
+	case 'C':
+		return "right", true
+	case 'D':
+		return "left", true
+	default:
+		return "", false
 	}
 }
 
 func gotoShortcut(c *cobra.Command) keyboard.Action {
 	return func(ctx *keyboard.Context) error {
-		addr, err := promptForAddress(c)
+		char, key, err := getKey()
+		if err != nil {
+			return err
+		}
+		if dir, ok := moveSpanDirectionForKey(char, key); ok {
+			return keyboardAction(c, actions.MoveSpan, []string{dir})(ctx)
+		}
+		addr, err := promptForAddressWithInitial(c, char, key)
 		if err != nil {
 			if errors.Is(err, errPromptCanceled) {
 				return nil
@@ -261,12 +318,28 @@ func gotoShortcut(c *cobra.Command) keyboard.Action {
 }
 
 func promptForAddress(c *cobra.Command) (string, error) {
+	return promptForAddressWithInitial(c, 0, 0)
+}
+
+func promptForAddressWithInitial(c *cobra.Command, initialRune rune, initialKey githubkeyboard.Key) (string, error) {
 	out := c.OutOrStdout()
 	current := appState.Address()
 	fmt.Fprintf(out, "\nGoto cell (ESC to cancel) [%s]: ", current)
 	buffer := []rune{}
+	if err := applyInitialAddressInput(out, initialRune, initialKey, &buffer); err != nil {
+		if errors.Is(err, errPromptCanceled) {
+			return "", err
+		}
+		return "", err
+	}
+	if initialKey == githubkeyboard.KeyEnter {
+		if len(buffer) == 0 {
+			return strings.TrimSpace(strings.ToUpper(current)), nil
+		}
+		return strings.TrimSpace(strings.ToUpper(string(buffer))), nil
+	}
 	for {
-		char, key, err := githubkeyboard.GetKey()
+		char, key, err := getKey()
 		if err != nil {
 			return "", err
 		}
@@ -298,6 +371,57 @@ func promptForAddress(c *cobra.Command) (string, error) {
 				fmt.Fprint(out, string(char))
 			}
 		}
+	}
+}
+
+func applyInitialAddressInput(out io.Writer, char rune, key githubkeyboard.Key, buffer *[]rune) error {
+	switch key {
+	case githubkeyboard.KeyEsc:
+		fmt.Fprintln(out)
+		return errPromptCanceled
+	case githubkeyboard.KeyEnter:
+		fmt.Fprintln(out)
+		return nil
+	case githubkeyboard.KeyBackspace, githubkeyboard.KeyBackspace2:
+		return nil
+	case githubkeyboard.KeyCtrlU, githubkeyboard.KeyCtrlW:
+		handleEditingControl(out, key, buffer)
+		return nil
+	default:
+		if unicode.IsLetter(char) {
+			char = unicode.ToUpper(char)
+			*buffer = append(*buffer, char)
+			fmt.Fprint(out, string(char))
+		} else if unicode.IsDigit(char) {
+			*buffer = append(*buffer, char)
+			fmt.Fprint(out, string(char))
+		}
+	}
+	return nil
+}
+
+func moveSpanDirectionForKey(char rune, key githubkeyboard.Key) (string, bool) {
+	switch key {
+	case githubkeyboard.KeyArrowLeft:
+		return "left", true
+	case githubkeyboard.KeyArrowRight:
+		return "right", true
+	case githubkeyboard.KeyArrowUp:
+		return "up", true
+	case githubkeyboard.KeyArrowDown:
+		return "down", true
+	}
+	switch unicode.ToLower(char) {
+	case 'h':
+		return "left", true
+	case 'l':
+		return "right", true
+	case 'k':
+		return "up", true
+	case 'j':
+		return "down", true
+	default:
+		return "", false
 	}
 }
 
