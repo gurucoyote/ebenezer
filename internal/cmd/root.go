@@ -26,12 +26,17 @@ var (
 	rootQuiet        bool
 )
 
+const interactiveAnnotation = "interactive"
+
 func init() {
 	rootCmd.RunE = rootRun
 	rootCmd.PersistentPreRunE = rootPreRun
 	rootCmd.PersistentFlags().StringVar(&rootSheet, "sheet", "", "Sheet to load when opening .xlsx files")
 	rootCmd.PersistentFlags().StringVar(&rootCSVDelimiter, "delimiter", string(workbook.DefaultCSVDelimiter), "Delimiter used when reading/writing CSV files")
 	rootCmd.PersistentFlags().BoolVarP(&rootQuiet, "quiet", "q", false, "Suppress JSON action logs")
+	cobra.OnInitialize(func() {
+		setInteractiveCommandVisibility(rootCmd, interactiveHelpEnabled)
+	})
 }
 
 // Execute runs the root command with the provided arguments/context.
@@ -98,4 +103,18 @@ func parseDelimiterFlag(value string) (rune, error) {
 		return 0, fmt.Errorf("delimiter must be a single character")
 	}
 	return runes[0], nil
+}
+
+func setInteractiveCommandVisibility(cmd *cobra.Command, show bool) {
+	if cmd == nil {
+		return
+	}
+	if cmd.Annotations != nil {
+		if cmd.Annotations[interactiveAnnotation] == "true" {
+			cmd.Hidden = !show
+		}
+	}
+	for _, child := range cmd.Commands() {
+		setInteractiveCommandVisibility(child, show)
+	}
 }

@@ -64,5 +64,6 @@ func init() {
 	rootCmd.AddCommand(yankCmd)
 	rootCmd.AddCommand(cutCmd)
 	rootCmd.AddCommand(pasteCmd)
+	markInteractive(editCmd, clearCmd, yankCmd, cutCmd, pasteCmd)
 	pasteCmd.Flags().BoolVar(&pasteBefore, "before", false, "Paste rows above the current row when clipboard holds rows")
 }
