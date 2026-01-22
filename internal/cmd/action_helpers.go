@@ -8,10 +8,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var suppressActionLogs bool
+
 func executeAction(cmd *cobra.Command, action actions.Action, args []string) (actions.Result, error) {
 	ctx := actions.NewContext(appState, cmd.OutOrStdout())
-	logger := actions.JSONLogger{Writer: cmd.ErrOrStderr()}
-	ctx.Logger = logger
+	if suppressActionLogs {
+		ctx.Logger = actions.NopLogger{}
+	} else {
+		ctx.Logger = actions.JSONLogger{Writer: cmd.ErrOrStderr()}
+	}
 	meta := action.Metadata()
 	ctx.Logger.Before(ctx, meta, args)
 	start := time.Now()
