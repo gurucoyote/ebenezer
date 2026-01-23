@@ -1,0 +1,6 @@
+2026-01-22
+- CLI commands do not share state across invocations; scripted workflows need a batch mode or persistent session (MCP/REPL).
+- Ctrl+Arrow handling varies by terminal; parsing CSI params (e.g., [5D] vs [1;5D]) is required for reliable span jumps.
+- Rich-text runs are stored separately in XLSX; Excelize GetCellRichText/SetCellRichText are needed to preserve/emit runs.
+- Keyboard-mode action logs should be suppressed for usability; non-interactive CLI can keep JSON logs or use --quiet.
+- Help output needs to distinguish interactive-only commands to avoid implying stateless CLI workflows.

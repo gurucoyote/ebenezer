@@ -1,0 +1,27 @@
+2026-01-22
+- ebenezer-zs9: Ctrl+Arrow span jump bug fixed; expanded escape parsing + tests.
+- ebenezer-x7v: Vim key binding tests added (dd/yy/xx, movement, g+arrow/hjkl).
+- ebenezer-2ad: Auto rich-text scan on open + current-workbook scan.
+- ebenezer-a07: Warn before editing rich-text cells in keyboard mode; tests added.
+- ebenezer-hav: Root CLI usage text refreshed with current examples.
+- ebenezer-i30: Interactive/stateful commands hidden from non-interactive help.
+
+Earlier closed tickets (from bd)
+- ebenezer-1hi: CSV inconsistent rows handled with padding + warnings.
+- ebenezer-mz7: Plan/roadmap review; remaining work tracked.
+- ebenezer-64z: Vim combo coverage.
+- ebenezer-9hy: move-span + Ctrl+Arrow dispatch implemented.
+- ebenezer-m0z: Default CSV delimiter set to semicolon.
+- ebenezer-l1a: CSV/XLSX golden tests.
+- ebenezer-6z0: MCP style schema documented.
+- ebenezer-9pv: Configurable CSV delimiter.
+- ebenezer-55b: Action-layer roadmap review.
+- ebenezer-axx: MCP P1 tool status review.
+- ebenezer-ujs: Test suite gaps verified.
+- ebenezer-8z8: Style snapshot helper status verified.
+- ebenezer-49d: Editing command coverage validated.
+- ebenezer-14k: Command registry wiring verified.
+- ebenezer-efw: Workbook I/O pending work verified.
+- ebenezer-7c9: Google Sheets option A captured, tracked as ebenezer-z4m.
+- ebenezer-gc5: Raw mode implemented.
+- ebenezer-gvc: PTY smoke test harness built.
