@@ -4,3 +4,4 @@
 - Rich-text runs are stored separately in XLSX; Excelize GetCellRichText/SetCellRichText are needed to preserve/emit runs.
 - Keyboard-mode action logs should be suppressed for usability; non-interactive CLI can keep JSON logs or use --quiet.
 - Help output needs to distinguish interactive-only commands to avoid implying stateless CLI workflows.
+- Vim-style quit UX is clearer: :q warns when dirty, :q! forces exit, :wq saves + exits.

@@ -25,3 +25,4 @@ Earlier closed tickets (from bd)
 - ebenezer-7c9: Google Sheets option A captured, tracked as ebenezer-z4m.
 - ebenezer-gc5: Raw mode implemented.
 - ebenezer-gvc: PTY smoke test harness built.
+- Updated quit behavior to Vim-style warning; added :q/:q!/:wq commands.

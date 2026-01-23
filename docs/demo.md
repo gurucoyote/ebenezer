@@ -22,7 +22,7 @@ go build ./cmd/ebenezer
 - `i`: edit the current cell value; `y` yanks, `x` cuts, `p`/`P` pastes (after/before), `d` `c` clears the cell.
 - `Y`: yank current row, `X`: cut row, `D`: delete row, `O`/`o`: insert blank rows above/below.
 - `:`: enter command mode (type commands such as `status`, `open test.csv`, `sample`).
-- `q`: exit keyboard mode.
+- `q`: exit keyboard mode; if dirty shows `No write since last change (add ! to override)` (use `:q!` or `:wq`).
 
 ### Command Examples (`:` prompt)
 ```

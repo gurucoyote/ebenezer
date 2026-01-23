@@ -9,7 +9,7 @@ Ebenezer is a headless-yet-interactive spreadsheet editor with a Vim-inspired wo
 - Keyboard input loop lifted from the Gordon project (`internal/ui/keyboard`).
 - Workbook layer backed by in-memory sample data, CSV loading, and `.xlsx` parsing via Excelize (`internal/workbook`).
 - Visual selection mode mirrors Vim: `v` for rectangular ranges, `V` for whole rows, ESC to exit, and the status line reports `VISUAL <range>` while active so clipboard ops preserve formatting.
-- Keyboard demo supports arrow-key navigation, `g` to jump to a cell, `s`/`ct`/`rt`/`style` to inspect values and formatting, `:` to enter command mode, and `q` to exit.
+- Keyboard demo supports arrow-key navigation, `g` to jump to a cell, `s`/`ct`/`rt`/`style` to inspect values and formatting, `:` to enter command mode, and `q`/`:q` to exit (dirty sheets warn).
 - `.xlsx` files reopen at the last active Excel cell/sheet when that metadata exists, and `ps` lets you list/switch sheets without reopening the file.
 
 ## Build & Run
@@ -35,7 +35,7 @@ While in keyboard mode:
 - `:ps` lists sheets; `:ps Sheet2` switches sheets (only for workbooks opened from disk).
 - `:` enters command mode—run commands like `status`, `open js/test.xlsx --sheet Sheet1`, `colheader`, `rowheader`, `sample`, `style B3`, `ps`, `ns ReportCopy Budget`, `style-copy A1:B2`, `style-paste C3:D4`, `save`, `saveas report.xlsx`.
 - `:colwidth show|set|auto` inspects or adjusts column widths (e.g., `:colwidth show`, `:colwidth set B 24`, `:colwidth auto A:D min=12 max=48`).
-- `q` exits keyboard mode.
+- `q` exits keyboard mode; if unsaved, shows `No write since last change (add ! to override)` (use `:q!` to force or `:wq` to save + quit).
 
 ### Discovery & MCP
 - Run `./ebenezer actions list` to inspect every registered action (name, description, args, idempotency) as pretty JSON. This command reads directly from the action registry (`actions.Discover()`) and is the quickest way to validate new metadata before exposing it to MCP or other transports.
