@@ -113,32 +113,12 @@ func runKeyboardMode(c *cobra.Command) error {
 	for {
 		if err := loop.Run(ctx); err != nil {
 			if err == keyboard.ErrQuit {
-				if !appState.IsDirty() {
-					fmt.Fprintln(c.OutOrStdout(), "exiting Ebenezer")
-					return nil
-				}
-				choice, err := promptExitChoice(os.Stdin, c.OutOrStdout())
-				if err != nil {
-					return err
-				}
-				switch choice {
-				case exitCancel:
+				if appState.IsDirty() {
+					fmt.Fprintln(c.OutOrStdout(), "No write since last change (add ! to override)")
 					continue
-				case exitDiscard:
-					fmt.Fprintln(c.OutOrStdout(), "exiting Ebenezer")
-					return nil
-				case exitSave:
-					if err := saveOnExit(c); err != nil {
-						if errors.Is(err, errPromptCanceled) {
-							continue
-						}
-						fmt.Fprintln(c.ErrOrStderr(), err.Error())
-						continue
-					}
-					fmt.Fprintln(c.OutOrStdout(), "exiting Ebenezer")
-					return nil
 				}
-				continue
+				fmt.Fprintln(c.OutOrStdout(), "exiting Ebenezer")
+				return nil
 			}
 			return err
 		}
