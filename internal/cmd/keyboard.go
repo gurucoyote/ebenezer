@@ -45,6 +45,9 @@ func runKeyboardMode(c *cobra.Command) error {
 	defer func() { suppressActionLogs = false }()
 	setInteractiveCommandVisibility(rootCmd, true)
 	defer setInteractiveCommandVisibility(rootCmd, false)
+	registerQuitCommands(c)
+	defer unregisterQuitCommands()
+	registerQuitCommands(c)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, unix.SIGTERM)
