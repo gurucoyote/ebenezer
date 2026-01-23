@@ -41,6 +41,7 @@ type State struct {
 	SourcePath          string
 	SheetNames          []string
 	Selection           Selection
+	dirty               bool
 	lastSearchQuery     string
 	lastSearchForward   bool
 	SearchCaseSensitive bool
@@ -53,6 +54,28 @@ func (s *State) CSVDelimiter() rune {
 		return workbook.DefaultCSVDelimiter
 	}
 	return s.csvDelimiter
+}
+
+// IsDirty reports whether the workbook has unsaved changes.
+func (s *State) IsDirty() bool {
+	if s == nil {
+		return false
+	}
+	return s.dirty
+}
+
+func (s *State) markDirty() {
+	if s == nil {
+		return
+	}
+	s.dirty = true
+}
+
+func (s *State) clearDirty() {
+	if s == nil {
+		return
+	}
+	s.dirty = false
 }
 
 // SetCSVDelimiter updates the delimiter used for CSV load/save operations.
@@ -121,6 +144,7 @@ func (s *State) LoadWorkbook(wb *workbook.Workbook, path string, sheets []string
 	s.Clipboard = Clipboard{}
 	s.StyleClipboard = StyleClipboard{}
 	s.Selection = Selection{}
+	s.dirty = false
 	s.lastSearchQuery = ""
 	s.lastSearchForward = true
 	s.SearchCaseSensitive = false
@@ -510,6 +534,7 @@ func (s *State) Save(path string) error {
 	if len(s.SheetNames) == 0 {
 		s.SheetNames = []string{s.Workbook.Sheet}
 	}
+	s.clearDirty()
 	return nil
 }
 
@@ -519,6 +544,7 @@ func (s *State) EditCurrentCell(value string) {
 		return
 	}
 	s.Workbook.SetCell(s.Cursor.Row, s.Cursor.Col, value)
+	s.markDirty()
 	s.updateActiveCell()
 }
 
@@ -527,6 +553,7 @@ func (s *State) ClearCurrentCell() {
 	if s.Workbook == nil {
 		return
 	}
+	s.markDirty()
 	if s.HasSelection() {
 		if s.Selection.Mode == SelectionRow {
 			if startRow, endRow, ok := s.SelectionRowBounds(); ok {
@@ -586,6 +613,7 @@ func (s *State) CutCurrentCell() string {
 	if s.Workbook == nil {
 		return ""
 	}
+	s.markDirty()
 	if s.HasSelection() {
 		if s.Selection.Mode == SelectionRow {
 			if startRow, endRow, ok := s.SelectionRowBounds(); ok {
@@ -656,9 +684,11 @@ func (s *State) PasteClipboard(before bool) error {
 					s.Workbook.SetCell(targetRow+r, targetCol+c, s.Clipboard.CellValue)
 				}
 			}
+			s.markDirty()
 			return nil
 		}
 		s.Workbook.SetCell(targetRow, targetCol, s.Clipboard.CellValue)
+		s.markDirty()
 		return nil
 	case ClipboardRow:
 		if len(s.Clipboard.Rows) == 0 {
@@ -679,6 +709,7 @@ func (s *State) PasteClipboard(before bool) error {
 				}
 			}
 		}
+		s.markDirty()
 		return nil
 	case ClipboardRange:
 		if len(s.Clipboard.RangeValues) == 0 {
@@ -707,14 +738,23 @@ func (s *State) PasteClipboard(before bool) error {
 						}
 					}
 				}
+				s.markDirty()
 				return nil
 			}
 			if clipHeight != destHeight || clipWidth != destWidth {
 				return errors.New("destination selection size must match copied range")
 			}
-			return s.applyRangeClipboard(targetRow, targetCol, clipHeight, clipWidth)
+			if err := s.applyRangeClipboard(targetRow, targetCol, clipHeight, clipWidth); err != nil {
+				return err
+			}
+			s.markDirty()
+			return nil
 		}
-		return s.applyRangeClipboard(targetRow, targetCol, clipHeight, clipWidth)
+		if err := s.applyRangeClipboard(targetRow, targetCol, clipHeight, clipWidth); err != nil {
+			return err
+		}
+		s.markDirty()
+		return nil
 	default:
 		return errors.New("clipboard empty")
 	}
@@ -740,6 +780,7 @@ func (s *State) CutCurrentRow() []string {
 	if row == nil {
 		return nil
 	}
+	s.markDirty()
 	s.deleteRow(s.Cursor.Row)
 	return row
 }
@@ -749,6 +790,7 @@ func (s *State) DeleteCurrentRow() {
 	if s.Workbook == nil {
 		return
 	}
+	s.markDirty()
 	s.deleteRow(s.Cursor.Row)
 }
 
@@ -758,6 +800,7 @@ func (s *State) InsertColumnLeft() {
 		return
 	}
 	s.Workbook.InsertColumn(s.Cursor.Col)
+	s.markDirty()
 	s.updateActiveCell()
 }
 
@@ -767,6 +810,7 @@ func (s *State) InsertColumnRight() {
 		return
 	}
 	s.Workbook.InsertColumn(s.Cursor.Col + 1)
+	s.markDirty()
 	s.updateActiveCell()
 }
 
@@ -778,6 +822,7 @@ func (s *State) DeleteCurrentColumn() {
 	if _, ok := s.Workbook.DeleteColumn(s.Cursor.Col); !ok {
 		return
 	}
+	s.markDirty()
 	_, maxCol := s.Workbook.MaxCoords()
 	if maxCol == 0 {
 		s.Cursor.Col = 1
@@ -872,6 +917,7 @@ func (s *State) SetColumnWidth(startCol, endCol int, width float64) ([]ColumnWid
 			Source:   "set",
 		})
 	}
+	s.markDirty()
 	return infos, nil
 }
 
@@ -895,6 +941,7 @@ func (s *State) AutoColumnWidth(startCol, endCol int, opts workbook.ColumnWidthO
 			Source:   "auto",
 		})
 	}
+	s.markDirty()
 	return infos, nil
 }
 
@@ -905,6 +952,7 @@ func (s *State) deleteRow(idx int) {
 	if _, ok := s.Workbook.DeleteRow(idx); !ok {
 		return
 	}
+	s.markDirty()
 	maxRow, _ := s.Workbook.MaxCoords()
 	if maxRow == 0 {
 		s.Cursor.Row = 1
@@ -920,6 +968,7 @@ func (s *State) InsertRowAbove() {
 		return
 	}
 	s.Workbook.InsertRow(s.Cursor.Row, nil)
+	s.markDirty()
 	s.updateActiveCell()
 }
 
@@ -929,6 +978,7 @@ func (s *State) InsertRowBelow() {
 		return
 	}
 	s.Workbook.InsertRow(s.Cursor.Row+1, nil)
+	s.markDirty()
 	s.updateActiveCell()
 }
 
@@ -1244,6 +1294,7 @@ func (s *State) PasteStyle(rangeStr string) error {
 	default:
 		return errors.New("destination range size must match copied style range")
 	}
+	s.markDirty()
 	return nil
 }
 
@@ -1287,6 +1338,7 @@ func (s *State) ApplyStyles(rangeStr string, styles [][]workbook.CellStyle) erro
 			s.Workbook.SetStyle(row, col, style)
 		}
 	}
+	s.markDirty()
 	return nil
 }
 

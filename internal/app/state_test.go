@@ -1,6 +1,7 @@
 package app
 
 import (
+	"path/filepath"
 	"testing"
 
 	"ebenezer/internal/workbook"
@@ -392,5 +393,23 @@ func TestStyleCopyPaste(t *testing.T) {
 	}
 	if style, ok := wb.Style("B2"); !ok || !style.Bold {
 		t.Fatalf("expected bold style replicated on B2")
+	}
+}
+
+func TestDirtyTracking(t *testing.T) {
+	st := NewState()
+	if st.IsDirty() {
+		t.Fatal("expected clean state after init")
+	}
+	st.EditCurrentCell("Updated")
+	if !st.IsDirty() {
+		t.Fatal("expected dirty state after edit")
+	}
+	tmp := filepath.Join(t.TempDir(), "dirty.csv")
+	if err := st.Save(tmp); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if st.IsDirty() {
+		t.Fatal("expected clean state after save")
 	}
 }

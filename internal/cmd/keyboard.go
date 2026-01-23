@@ -107,14 +107,40 @@ func runKeyboardMode(c *cobra.Command) error {
 
 	loop.Terminal = ui.NewTerminal(int(os.Stdin.Fd()))
 
-	if err := loop.Run(ctx); err != nil {
-		if err == keyboard.ErrQuit {
-			fmt.Fprintln(c.OutOrStdout(), "exiting Ebenezer")
-			return nil
+	for {
+		if err := loop.Run(ctx); err != nil {
+			if err == keyboard.ErrQuit {
+				if !appState.IsDirty() {
+					fmt.Fprintln(c.OutOrStdout(), "exiting Ebenezer")
+					return nil
+				}
+				choice, err := promptExitChoice(os.Stdin, c.OutOrStdout())
+				if err != nil {
+					return err
+				}
+				switch choice {
+				case exitCancel:
+					continue
+				case exitDiscard:
+					fmt.Fprintln(c.OutOrStdout(), "exiting Ebenezer")
+					return nil
+				case exitSave:
+					if err := saveOnExit(c); err != nil {
+						if errors.Is(err, errPromptCanceled) {
+							continue
+						}
+						fmt.Fprintln(c.ErrOrStderr(), err.Error())
+						continue
+					}
+					fmt.Fprintln(c.OutOrStdout(), "exiting Ebenezer")
+					return nil
+				}
+				continue
+			}
+			return err
 		}
-		return err
+		return nil
 	}
-	return nil
 }
 
 var errPromptCanceled = errors.New("prompt cancelled")
