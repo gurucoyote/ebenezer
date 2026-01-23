@@ -79,6 +79,7 @@ This document gives CLI coding agents the context they need to work effectively 
 
 **MANDATORY WORKFLOW:**
 
+0. **Update progress logs** - Append a brief note to `progress.txt` and `learnings.txt` (create them if missing)
 1. **File issues for remaining work** - Create issues for anything that needs follow-up
 2. **Run quality gates** (if code changed) - Tests, linters, builds
 3. **Update issue status** - Close finished work, update in-progress items
