@@ -5,3 +5,4 @@
 - Keyboard-mode action logs should be suppressed for usability; non-interactive CLI can keep JSON logs or use --quiet.
 - Help output needs to distinguish interactive-only commands to avoid implying stateless CLI workflows.
 - Vim-style quit UX is clearer: :q warns when dirty, :q! forces exit, :wq saves + exits.
+- 2026-04-02: MCP spreadsheet automation still needs higher-level row operations; stable row partition/reorder is a common case that is awkward and error-prone with only primitive cell/row edits.

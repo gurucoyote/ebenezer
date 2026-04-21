@@ -3,9 +3,7 @@ package app
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
-	"unicode"
 
 	"ebenezer/internal/workbook"
 )
@@ -62,6 +60,13 @@ func (s *State) IsDirty() bool {
 		return false
 	}
 	return s.dirty
+}
+
+// SetDirty marks the workbook as having unsaved changes.
+// This is the public accessor for actions that mutate the workbook
+// without going through an existing state method that already calls markDirty.
+func (s *State) SetDirty() {
+	s.markDirty()
 }
 
 func (s *State) markDirty() {
@@ -1189,42 +1194,6 @@ func (s *State) Address() string {
 	return fmt.Sprintf("%s%d", workbook.ColumnName(s.Cursor.Col), s.Cursor.Row)
 }
 
-func parseAddress(address string) (int, int, error) {
-	addr := strings.TrimSpace(address)
-	if addr == "" {
-		return 0, 0, errors.New("address required")
-	}
-	addr = strings.ToUpper(addr)
-	var letters, digits strings.Builder
-	for _, r := range addr {
-		switch {
-		case unicode.IsLetter(r):
-			letters.WriteRune(r)
-		case unicode.IsDigit(r):
-			digits.WriteRune(r)
-		default:
-			return 0, 0, fmt.Errorf("invalid character %q in address", r)
-		}
-	}
-	if letters.Len() == 0 || digits.Len() == 0 {
-		return 0, 0, errors.New("address must include column letters and row digits")
-	}
-	col := lettersToNumber(letters.String())
-	row, err := strconv.Atoi(digits.String())
-	if err != nil {
-		return 0, 0, fmt.Errorf("invalid row digits: %w", err)
-	}
-	return row, col, nil
-}
-
-func lettersToNumber(s string) int {
-	result := 0
-	for _, r := range s {
-		result = result*26 + int(r-'A'+1)
-	}
-	return result
-}
-
 func (s *State) updateActiveCell() {
 	if s.Workbook == nil {
 		return
@@ -1362,30 +1331,11 @@ func (s *State) resolveRange(rangeStr string) (int, int, int, int, string, error
 }
 
 func parseRange(rangeStr string) (int, int, int, int, error) {
-	parts := strings.Split(rangeStr, ":")
-	if len(parts) > 2 {
-		return 0, 0, 0, 0, fmt.Errorf("invalid range %s", rangeStr)
-	}
-	startAddr := strings.TrimSpace(parts[0])
-	startRow, startCol, err := parseAddress(startAddr)
-	if err != nil {
-		return 0, 0, 0, 0, err
-	}
-	endRow, endCol := startRow, startCol
-	if len(parts) == 2 {
-		endAddr := strings.TrimSpace(parts[1])
-		endRow, endCol, err = parseAddress(endAddr)
-		if err != nil {
-			return 0, 0, 0, 0, err
-		}
-	}
-	if startRow > endRow {
-		startRow, endRow = endRow, startRow
-	}
-	if startCol > endCol {
-		startCol, endCol = endCol, startCol
-	}
-	return startRow, startCol, endRow, endCol, nil
+	return workbook.ParseRange(rangeStr)
+}
+
+func parseAddress(address string) (int, int, error) {
+	return workbook.ParseCellAddress(address)
 }
 
 func formatRangeString(startRow, startCol, endRow, endCol int) string {

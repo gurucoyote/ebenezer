@@ -591,3 +591,171 @@ func (w *Workbook) shiftColumnWidthsDelete(idx int) {
 	}
 	w.ColumnWidths = updated
 }
+
+// StablePartitionOpts configures a stable partition operation.
+type StablePartitionOpts struct {
+	HeaderRows       int    // number of header rows (default 1)
+	StartRow         int    // 1-based start row; 0 = auto (HeaderRows+1)
+	EndRow           int    // 1-based end row inclusive; 0 = auto (len(w.Cells))
+	KeyColumn        int    // 1-based column used for predicate evaluation
+	Predicate        string // "equals", "equals_ignore_case", "is_blank", "is_non_blank"
+	Value            string // comparison value for "equals" and "equals_ignore_case"
+	MatchingPosition string // "top" or "bottom" (default "bottom")
+	SeparatorRows    int    // blank rows inserted between partitions (default 0)
+}
+
+// StablePartition reorders data rows so that matching and non-matching rows
+// form two contiguous groups while preserving the original order within each
+// group (stable partition). Styles are remapped accordingly.
+// Returns the number of matching rows or an error.
+func (w *Workbook) StablePartition(opts StablePartitionOpts) (int, error) {
+	if w == nil {
+		return 0, fmt.Errorf("no workbook data")
+	}
+
+	// Resolve defaults.
+	if opts.HeaderRows < 0 {
+		opts.HeaderRows = 0
+	}
+	if opts.HeaderRows == 0 {
+		opts.HeaderRows = 1
+	}
+	if opts.StartRow == 0 {
+		opts.StartRow = opts.HeaderRows + 1
+	}
+	if opts.EndRow == 0 {
+		opts.EndRow = len(w.Cells)
+	}
+	if opts.MatchingPosition == "" {
+		opts.MatchingPosition = "bottom"
+	}
+
+	// Validate.
+	if opts.KeyColumn < 1 {
+		return 0, fmt.Errorf("KeyColumn must be > 0")
+	}
+	if opts.StartRow < 1 || opts.EndRow > len(w.Cells) || opts.StartRow > opts.EndRow {
+		return 0, fmt.Errorf("invalid row range %d-%d (workbook has %d rows)", opts.StartRow, opts.EndRow, len(w.Cells))
+	}
+	if opts.MatchingPosition != "top" && opts.MatchingPosition != "bottom" {
+		return 0, fmt.Errorf("MatchingPosition must be \"top\" or \"bottom\", got %q", opts.MatchingPosition)
+	}
+	validPreds := map[string]bool{"equals": true, "equals_ignore_case": true, "is_blank": true, "is_non_blank": true}
+	if !validPreds[opts.Predicate] {
+		return 0, fmt.Errorf("unsupported predicate %q", opts.Predicate)
+	}
+
+	// TODO: merged cells check — CellStyle has no merge-related fields yet;
+	// once MergeAcross/MergeDown (or similar) are added, scan Styles for
+	// entries whose row is in the data range and return an error if two
+	// adjacent cells in the same row share a merged style.
+
+	// Partition data rows and build row mapping in a single pass.
+	colIdx := opts.KeyColumn - 1 // 0-based column index
+	var matching, nonMatching [][]string
+	var origMatching, origNonMatching []int
+	matchCount := 0
+
+	for row := opts.StartRow; row <= opts.EndRow; row++ {
+		cellVal := w.Cell(row, opts.KeyColumn)
+		if colIdx >= len(w.Cells[row-1]) {
+			cellVal = ""
+		}
+		if MatchPredicate(cellVal, opts.Predicate, opts.Value) {
+			matching = append(matching, w.Cells[row-1])
+			origMatching = append(origMatching, row)
+			matchCount++
+		} else {
+			nonMatching = append(nonMatching, w.Cells[row-1])
+			origNonMatching = append(origNonMatching, row)
+		}
+	}
+
+	// Build reordered rows and separator.
+	sep := make([][]string, opts.SeparatorRows)
+	for i := range sep {
+		sep[i] = make([]string, w.maxCols())
+	}
+
+	var reordered [][]string
+	if opts.MatchingPosition == "top" {
+		reordered = append(reordered, matching...)
+		reordered = append(reordered, sep...)
+		reordered = append(reordered, nonMatching...)
+	} else {
+		reordered = append(reordered, nonMatching...)
+		reordered = append(reordered, sep...)
+		reordered = append(reordered, matching...)
+	}
+
+	// Build the row mapping: original 1-based row -> new 1-based row.
+	rowMap := make(map[int]int, opts.EndRow-opts.StartRow+1)
+	newRow := opts.StartRow
+
+	if opts.MatchingPosition == "top" {
+		for _, orig := range origMatching {
+			rowMap[orig] = newRow
+			newRow++
+		}
+		newRow += opts.SeparatorRows
+		for _, orig := range origNonMatching {
+			rowMap[orig] = newRow
+			newRow++
+		}
+	} else {
+		for _, orig := range origNonMatching {
+			rowMap[orig] = newRow
+			newRow++
+		}
+		newRow += opts.SeparatorRows
+		for _, orig := range origMatching {
+			rowMap[orig] = newRow
+			newRow++
+		}
+	}
+
+	// Replace the data range in Cells.
+	newCells := make([][]string, 0, len(w.Cells)+opts.SeparatorRows)
+	newCells = append(newCells, w.Cells[:opts.StartRow-1]...)
+	newCells = append(newCells, reordered...)
+	// Append any rows after EndRow.
+	if opts.EndRow < len(w.Cells) {
+		newCells = append(newCells, w.Cells[opts.EndRow:]...)
+	}
+	w.Cells = newCells
+
+	// Remap Styles for rows that moved within the data range.
+	if w.Styles != nil {
+		updated := make(map[string]CellStyle, len(w.Styles))
+		for addr, style := range w.Styles {
+			colLetters, row, err := splitAddress(addr)
+			if err != nil {
+				continue
+			}
+			if newRow, ok := rowMap[row]; ok {
+				updated[fmt.Sprintf("%s%d", colLetters, newRow)] = style
+				continue
+			}
+			updated[addr] = style
+		}
+		w.Styles = updated
+	}
+
+	return matchCount, nil
+}
+
+// MatchPredicate evaluates the predicate against a cell value.
+func MatchPredicate(cellVal, predicate, value string) bool {
+	switch predicate {
+	case "equals":
+		return cellVal == value
+	case "equals_ignore_case":
+		return strings.EqualFold(cellVal, value)
+	case "is_blank":
+		return strings.TrimSpace(cellVal) == ""
+	case "is_non_blank":
+		return strings.TrimSpace(cellVal) != ""
+	default:
+		return false
+	}
+}

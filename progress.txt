@@ -5,6 +5,7 @@
 - ebenezer-a07: Warn before editing rich-text cells in keyboard mode; tests added.
 - ebenezer-hav: Root CLI usage text refreshed with current examples.
 - ebenezer-i30: Interactive/stateful commands hidden from non-interactive help.
+- 2026-04-02: Added docs/mcp-row-reorder-feature-request.md to capture a first-class MCP row partition/reorder request for workbook automation.
 
 Earlier closed tickets (from bd)
 - ebenezer-1hi: CSV inconsistent rows handled with padding + warnings.
