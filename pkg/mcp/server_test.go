@@ -326,6 +326,78 @@ func TestWorkspaceLifecycleTools(t *testing.T) {
 	}
 }
 
+func TestWorkspaceOpenCreateIfMissing(t *testing.T) {
+	handler := &toolHandler{sessions: NewSessionManager()}
+
+	t.Run("creates_csv_when_missing", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "new_workbook.csv")
+		openRes := mustCall(t, handler.workspaceOpenTool, map[string]any{
+			"path":             path,
+			"create_if_missing": true,
+		})
+		var openPayload workspaceOpenResponse
+		decodeResult(t, openRes, &openPayload)
+		if openPayload.SessionID == "" {
+			t.Fatalf("expected session id")
+		}
+		if len(openPayload.Sheets) == 0 || openPayload.Sheets[0] != "Sheet1" {
+			t.Fatalf("expected Sheet1, got %v", openPayload.Sheets)
+		}
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("expected file to exist on disk: %v", err)
+		}
+
+		cursorRes := mustCall(t, handler.cursorGetTool, map[string]any{"session_id": openPayload.SessionID})
+		var cursor cursorResponse
+		decodeResult(t, cursorRes, &cursor)
+		if cursor.Address != "A1" {
+			t.Fatalf("expected cursor at A1, got %s", cursor.Address)
+		}
+	})
+
+	t.Run("creates_xlsx_when_missing", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "new_workbook.xlsx")
+		openRes := mustCall(t, handler.workspaceOpenTool, map[string]any{
+			"path":              path,
+			"create_if_missing": true,
+		})
+		var openPayload workspaceOpenResponse
+		decodeResult(t, openRes, &openPayload)
+		if openPayload.SessionID == "" {
+			t.Fatalf("expected session id")
+		}
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("expected xlsx file to exist on disk: %v", err)
+		}
+	})
+
+	t.Run("fails_without_create_if_missing", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "nonexistent.csv")
+		req := mcp.CallToolRequest{}
+		req.Params.Arguments = map[string]any{"path": path}
+		_, err := handler.workspaceOpenTool(context.Background(), req)
+		if err == nil {
+			t.Fatalf("expected error for missing file without create_if_missing")
+		}
+	})
+
+	t.Run("opens_existing_file_with_create_if_missing", func(t *testing.T) {
+		path := writeSampleWorkbook(t)
+		openRes := mustCall(t, handler.workspaceOpenTool, map[string]any{
+			"path":              path,
+			"create_if_missing": true,
+		})
+		var openPayload workspaceOpenResponse
+		decodeResult(t, openRes, &openPayload)
+		if openPayload.SessionID == "" {
+			t.Fatalf("expected session id for existing file")
+		}
+		if len(openPayload.Sheets) == 0 {
+			t.Fatalf("expected sheets for existing file")
+		}
+	})
+}
+
 func TestCellEditOutOfBoundsAddress(t *testing.T) {
 	handler := &toolHandler{sessions: NewSessionManager()}
 	path := writeSampleWorkbook(t)

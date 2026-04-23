@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -54,6 +56,7 @@ func newServer(opts Options) *server.MCPServer {
 			mcp.WithString("path", mcp.Required(), mcp.Description("Path to CSV/XLSX file")),
 			mcp.WithString("sheet", mcp.Description("Optional sheet name when opening XLSX files")),
 			mcp.WithString("mode", mcp.Description("Optional mode: read_only or read_write (default)")),
+			mcp.WithBoolean("create_if_missing", mcp.Description("When true, create a new empty workbook if the file does not exist")),
 		),
 		handler.workspaceOpenTool,
 	)
@@ -266,9 +269,10 @@ type toolHandler struct {
 // DTOs for tool arguments/responses.
 type (
 	workspaceOpenArgs struct {
-		Path  string `json:"path"`
-		Sheet string `json:"sheet"`
-		Mode  string `json:"mode"`
+		Path            string `json:"path"`
+		Sheet           string `json:"sheet"`
+		Mode            string `json:"mode"`
+		CreateIfMissing bool   `json:"create_if_missing"`
 	}
 	workspaceOpenResponse struct {
 		SessionID   string   `json:"sessionId"`
@@ -461,6 +465,14 @@ func (h *toolHandler) workspaceOpenTool(ctx context.Context, req mcp.CallToolReq
 	}
 	if strings.TrimSpace(args.Path) == "" {
 		return nil, errors.New("path is required")
+	}
+	if args.CreateIfMissing {
+		if _, err := os.Stat(args.Path); err != nil && os.IsNotExist(err) {
+			wb := workbook.NewEmpty(filepath.Base(args.Path))
+			if err := wb.Save(args.Path); err != nil {
+				return nil, fmt.Errorf("create empty workbook: %w", err)
+			}
+		}
 	}
 	readOnly := strings.EqualFold(args.Mode, "read_only") || strings.EqualFold(args.Mode, "readonly")
 	session, err := h.sessions.Open(args.Path, args.Sheet, readOnly)

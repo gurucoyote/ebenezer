@@ -53,6 +53,19 @@ type Workbook struct {
 	Warnings      []string
 }
 
+// NewEmpty returns a minimal empty Workbook with one empty cell.
+func NewEmpty(name string) *Workbook {
+	return &Workbook{
+		Cells:        [][]string{{""}},
+		Name:         name,
+		Sheet:        "Sheet1",
+		Styles:       map[string]CellStyle{},
+		RichTextRuns: map[string]int{},
+		ActiveCell:   "A1",
+		ColumnWidths: map[int]float64{},
+	}
+}
+
 // SampleWorkbook seeds demo data without hitting the filesystem.
 func SampleWorkbook() *Workbook {
 	cells := [][]string{
