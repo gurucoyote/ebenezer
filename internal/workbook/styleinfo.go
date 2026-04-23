@@ -1,6 +1,7 @@
 package workbook
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"sort"
@@ -32,6 +33,51 @@ func (c CellStyle) Empty() bool {
 	return c.FillColor == "" && c.FontColor == "" && c.NumberFormat == "" &&
 		c.HorizontalAlign == "" && c.VerticalAlign == "" && len(c.Borders) == 0 &&
 		!c.Bold && !c.Italic && !c.Underline
+}
+
+// cellStyleAlias is an alias type used inside UnmarshalJSON to avoid
+// infinite recursion when calling json.Unmarshal on the standard struct.
+type cellStyleAlias CellStyle
+
+// UnmarshalJSON implements custom unmarshalling for CellStyle.
+// It maps legacy field names (bg_color, font_color) to the canonical
+// Go fields (FillColor, FontColor) so that both old and new JSON keys
+// are accepted.
+func (c *CellStyle) UnmarshalJSON(data []byte) error {
+	// 1. Unmarshal using the standard json tags via the alias type.
+	var alias cellStyleAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+
+	// 2. Inspect a raw map for legacy field names.
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		// data was already valid JSON above, so this should not happen,
+		// but fall back gracefully.
+		*c = CellStyle(alias)
+		return nil
+	}
+
+	if alias.FillColor == "" {
+		if v, ok := raw["bg_color"]; ok {
+			var s string
+			if err := json.Unmarshal(v, &s); err == nil {
+				alias.FillColor = s
+			}
+		}
+	}
+	if alias.FontColor == "" {
+		if v, ok := raw["font_color"]; ok {
+			var s string
+			if err := json.Unmarshal(v, &s); err == nil {
+				alias.FontColor = s
+			}
+		}
+	}
+
+	*c = CellStyle(alias)
+	return nil
 }
 
 // Describe returns a human-friendly summary of the style.
