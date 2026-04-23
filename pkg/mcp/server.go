@@ -606,12 +606,18 @@ func (h *toolHandler) cellEditTool(ctx context.Context, req mcp.CallToolRequest)
 		return nil, err
 	}
 	if strings.TrimSpace(args.Address) != "" {
-		if err := session.State.Goto(args.Address); err != nil {
+		row, col, err := workbook.ParseCellAddress(args.Address)
+		if err != nil {
 			return nil, err
 		}
-	}
-	if _, err := runAction(session, actions.Edit, []string{args.Value}); err != nil {
-		return nil, err
+		session.State.Workbook.SetCell(row, col, args.Value)
+		session.State.Cursor = app.Cursor{Row: row, Col: col}
+		session.State.SetDirty()
+		session.State.Workbook.ActiveCell = session.State.Address()
+	} else {
+		if _, err := runAction(session, actions.Edit, []string{args.Value}); err != nil {
+			return nil, err
+		}
 	}
 	resp := cellEditResponse{
 		SessionID:   session.ID,
@@ -636,12 +642,18 @@ func (h *toolHandler) cellClearTool(ctx context.Context, req mcp.CallToolRequest
 		return nil, err
 	}
 	if strings.TrimSpace(args.Address) != "" {
-		if err := session.State.Goto(args.Address); err != nil {
+		row, col, err := workbook.ParseCellAddress(args.Address)
+		if err != nil {
 			return nil, err
 		}
-	}
-	if _, err := runAction(session, actions.Clear, nil); err != nil {
-		return nil, err
+		session.State.Workbook.ClearCell(row, col)
+		session.State.Cursor = app.Cursor{Row: row, Col: col}
+		session.State.SetDirty()
+		session.State.Workbook.ActiveCell = session.State.Address()
+	} else {
+		if _, err := runAction(session, actions.Clear, nil); err != nil {
+			return nil, err
+		}
 	}
 	resp := cellEditResponse{
 		SessionID:   session.ID,

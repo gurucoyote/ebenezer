@@ -326,6 +326,49 @@ func TestWorkspaceLifecycleTools(t *testing.T) {
 	}
 }
 
+func TestCellEditOutOfBoundsAddress(t *testing.T) {
+	handler := &toolHandler{sessions: NewSessionManager()}
+	path := writeSampleWorkbook(t)
+
+	openRes := mustCall(t, handler.workspaceOpenTool, map[string]any{"path": path})
+	var openPayload workspaceOpenResponse
+	decodeResult(t, openRes, &openPayload)
+
+	// Edit a cell well beyond current grid dimensions.
+	editRes := mustCall(t, handler.cellEditTool, map[string]any{
+		"session_id": openPayload.SessionID,
+		"address":    "Z10",
+		"value":      "out_of_bounds",
+	})
+	var editPayload cellEditResponse
+	decodeResult(t, editRes, &editPayload)
+	if editPayload.Address != "Z10" {
+		t.Fatalf("expected address Z10, got %s", editPayload.Address)
+	}
+	if editPayload.Value != "out_of_bounds" {
+		t.Fatalf("expected value out_of_bounds, got %s", editPayload.Value)
+	}
+
+	// Verify cursor landed at the target cell, not a clamped position.
+	cursorRes := mustCall(t, handler.cursorGetTool, map[string]any{"session_id": openPayload.SessionID})
+	var cursor cursorResponse
+	decodeResult(t, cursorRes, &cursor)
+	if cursor.Address != "Z10" {
+		t.Fatalf("expected cursor at Z10, got %s", cursor.Address)
+	}
+
+	// Clear the out-of-bounds cell; cursor should move there too.
+	clearRes := mustCall(t, handler.cellClearTool, map[string]any{
+		"session_id": openPayload.SessionID,
+		"address":    "Z10",
+	})
+	var clearPayload cellEditResponse
+	decodeResult(t, clearRes, &clearPayload)
+	if clearPayload.Address != "Z10" {
+		t.Fatalf("expected clear address Z10, got %s", clearPayload.Address)
+	}
+}
+
 func writeSampleWorkbook(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "sample.csv")
