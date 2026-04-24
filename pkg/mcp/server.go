@@ -234,8 +234,8 @@ func newServer(opts Options) *server.MCPServer {
 			mcp.WithString("session_id", mcp.Required(), mcp.Description("Session identifier")),
 			mcp.WithString("kind", mcp.Required(), mcp.Description("Clipboard kind: cell, row, or range")),
 			mcp.WithString("value", mcp.Description("Value for cell clipboard kind")),
-			mcp.WithArray("rows", mcp.Items(map[string]any{"type": "array"}), mcp.Description("Rows payload for row clipboard kind")),
-			mcp.WithArray("range_values", mcp.Items(map[string]any{"type": "array"}), mcp.Description("2D array payload for range clipboard kind")),
+			mcp.WithArray("rows", mcp.Items(map[string]any{"type": "array", "items": map[string]any{"type": "string"}}), mcp.Description("Rows payload for row clipboard kind")),
+			mcp.WithArray("range_values", mcp.Items(map[string]any{"type": "array", "items": map[string]any{"type": "string"}}), mcp.Description("2D array payload for range clipboard kind")),
 		),
 		handler.clipboardSetTool,
 	)
@@ -255,7 +255,7 @@ func newServer(opts Options) *server.MCPServer {
 			mcp.WithString("session_id", mcp.Required(), mcp.Description("Session identifier")),
 			mcp.WithString("range", mcp.Description("Destination cell or range")),
 			mcp.WithString("style_from", mcp.Description("Optional source range to copy styles from")),
-			mcp.WithArray("styles", mcp.Items(map[string]any{"type": "array"}), mcp.Description("Optional 2D array of style objects to apply")),
+			mcp.WithArray("styles", mcp.Items(map[string]any{"type": "array", "items": map[string]any{"type": "string"}}), mcp.Description("Optional 2D array of style objects to apply")),
 		),
 		handler.styleApplyTool,
 	)
