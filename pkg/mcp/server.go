@@ -259,6 +259,17 @@ func newServer(opts Options) *server.MCPServer {
 		),
 		handler.styleApplyTool,
 	)
+	s.AddTool(
+		mcp.NewTool(
+			"table_sort",
+			mcp.WithDescription("Sort table rows by one or more columns."),
+			mcp.WithString("session_id", mcp.Required(), mcp.Description("Session identifier")),
+			mcp.WithString("keys", mcp.Required(), mcp.Description("Sort keys as column[:direction] pairs, e.g. B:desc C:asc or 2:desc")),
+			mcp.WithString("header_rows", mcp.Description("Number of header rows to keep fixed (default 1)")),
+			mcp.WithString("range", mcp.Description("A1-style range to restrict operation (e.g. A1:D20)")),
+		),
+		handler.tableSortTool,
+	)
 	return s
 }
 
@@ -436,6 +447,16 @@ type (
 		CellsAffected int    `json:"cellsAffected"`
 		StyleStatus   string `json:"styleStatus"`
 		Source        string `json:"source,omitempty"`
+	}
+	tableSortArgs struct {
+		SessionID  string `json:"session_id"`
+		Keys       string `json:"keys"`
+		HeaderRows string `json:"header_rows"`
+		Range      string `json:"range"`
+	}
+	tableSortResponse struct {
+		SessionID string `json:"sessionId"`
+		Message   string `json:"message"`
 	}
 	rangeStyleEntry struct {
 		Row       int                `json:"row"`
@@ -1064,6 +1085,37 @@ func (h *toolHandler) styleApplyTool(ctx context.Context, req mcp.CallToolReques
 		CellsAffected: cells,
 		StyleStatus:   status,
 		Source:        source,
+	}
+	return jsonResult(resp)
+}
+
+func (h *toolHandler) tableSortTool(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	_ = ctx
+	var args tableSortArgs
+	if err := decodeArgs(req.Params.Arguments, &args); err != nil {
+		return nil, err
+	}
+	session, err := h.sessions.Get(strings.TrimSpace(args.SessionID))
+	if err != nil {
+		return nil, err
+	}
+	if session.ReadOnly {
+		return nil, fmt.Errorf("session %s is read-only", session.ID)
+	}
+	actionArgs := []string{strings.TrimSpace(args.Keys)}
+	if strings.TrimSpace(args.HeaderRows) != "" {
+		actionArgs = append(actionArgs, "header_rows="+strings.TrimSpace(args.HeaderRows))
+	}
+	if strings.TrimSpace(args.Range) != "" {
+		actionArgs = append(actionArgs, "range="+strings.TrimSpace(args.Range))
+	}
+	result, err := runAction(session, actions.TableSort, actionArgs)
+	if err != nil {
+		return nil, err
+	}
+	resp := tableSortResponse{
+		SessionID: session.ID,
+		Message:   result.Message,
 	}
 	return jsonResult(resp)
 }
